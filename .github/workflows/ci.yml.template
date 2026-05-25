@@ -1,0 +1,92 @@
+# CI workflow template — copy to .github/workflows/ci.yml and customise
+# Remove the .template extension to activate
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build --if-present
+
+  agent-checks:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check agent frontmatter
+        run: |
+          if [ -d .claude/agents ]; then
+            for f in .claude/agents/*.md; do
+              first_line=$(head -1 "$f")
+              if [ "$first_line" != "---" ]; then
+                echo "FAIL: $f missing frontmatter"
+                exit 1
+              fi
+            done
+            echo "All agent files have valid frontmatter"
+          else
+            echo "No .claude/agents directory — skipping"
+          fi
+
+      - name: Check bilingual completeness
+        run: |
+          if [ -d src/locales ]; then
+            en_keys=$(cat src/locales/en/translation.json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          def get_keys(d, prefix=''):
+              keys = []
+              for k, v in d.items():
+                  full = f'{prefix}.{k}' if prefix else k
+                  if isinstance(v, dict):
+                      keys.extend(get_keys(v, full))
+                  else:
+                      keys.append(full)
+              return keys
+          print('\n'.join(get_keys(data)))
+          " | sort)
+            de_keys=$(cat src/locales/de/translation.json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          def get_keys(d, prefix=''):
+              keys = []
+              for k, v in d.items():
+                  full = f'{prefix}.{k}' if prefix else k
+                  if isinstance(v, dict):
+                      keys.extend(get_keys(v, full))
+                  else:
+                      keys.append(full)
+              return keys
+          print('\n'.join(get_keys(data)))
+          " | sort)
+            diff <(echo "$en_keys") <(echo "$de_keys") && echo "Locales in sync" || (echo "Locale mismatch detected" && exit 1)
+          else
+            echo "No locales directory — skipping bilingual check"
+          fi

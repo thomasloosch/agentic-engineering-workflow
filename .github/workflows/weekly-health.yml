@@ -1,0 +1,70 @@
+name: Weekly health check
+
+on:
+  schedule:
+    - cron: '0 16 * * 0'
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Report repo health
+        run: |
+          echo "=== Workflow repo health ==="
+          echo "Date: $(date -I)"
+          echo "Branch: $(git branch --show-current)"
+          echo "Latest commit: $(git log -1 --oneline)"
+          echo "Commits last 7 days: $(git log --since='7 days ago' --oneline | wc -l)"
+          echo "Total agent files: $(ls .claude/agents/*.md 2>/dev/null | wc -l)"
+          echo "Total skill files: $(find .claude/skills -name 'SKILL.md' | wc -l)"
+          echo "Total command files: $(ls .claude/commands/*.md 2>/dev/null | wc -l)"
+
+      - name: Check agent frontmatter
+        run: |
+          echo "=== Agent frontmatter check ==="
+          all_ok=true
+          for f in .claude/agents/*.md; do
+            first_line=$(head -1 "$f")
+            if [ "$first_line" != "---" ]; then
+              echo "FAIL: $f — first line is not ---"
+              all_ok=false
+            else
+              echo "OK: $(basename $f)"
+            fi
+          done
+          if [ "$all_ok" = false ]; then
+            exit 1
+          fi
+
+      - name: Check scope boundaries present
+        run: |
+          echo "=== Scope boundaries check ==="
+          missing=0
+          for f in .claude/agents/*.md; do
+            if ! grep -q "SCOPE BOUNDARIES" "$f"; then
+              echo "MISSING: $(basename $f)"
+              missing=$((missing + 1))
+            else
+              echo "OK: $(basename $f)"
+            fi
+          done
+          if [ "$missing" -gt 0 ]; then
+            echo "ERROR: $missing agents missing SCOPE BOUNDARIES"
+            exit 1
+          fi
+
+      - name: Check no hardcoded Windows paths
+        run: |
+          echo "=== Windows path check ==="
+          found=$(grep -rl "C:\\\\Users" .claude/ 2>/dev/null | wc -l)
+          if [ "$found" -gt 0 ]; then
+            echo "ERROR: Found $found files with hardcoded Windows paths:"
+            grep -rl "C:\\\\Users" .claude/
+            exit 1
+          else
+            echo "OK: No hardcoded Windows paths found"
+          fi
