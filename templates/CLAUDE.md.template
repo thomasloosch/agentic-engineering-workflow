@@ -1,0 +1,33 @@
+# Project Conventions — {{PROJECT_NAME}}
+
+This file is read by Claude Code at the start of every session. It overrides or extends the global agentic-engineering-workflow defaults.
+
+---
+
+## Project quick context
+
+- **Language:** [Primary language, e.g., TypeScript / Python / Go]
+- **Framework:** [If applicable — React, Vite, FastAPI, etc.]
+- **Deployment target:** [Hetzner / Vercel / serverless / etc.]
+- **Production URL:** [if applicable]
+- **Database:** [if applicable]
+
+## Engineering standards overrides
+
+[Use this section to opt out of any default standard. Leave empty if all defaults apply.]
+
+## Project-specific patterns
+
+[Patterns specific to this codebase that agents should know. Example: "All API responses use the {success, data, error} envelope shape."]
+
+## Standing rules (graduated from lessons)
+
+[Promoted lessons specific to this project. New rules added here only after 3+ recurrences in lessons.md.]
+
+## Domain glossary
+
+[Terms specific to this domain that agents should understand correctly. Example: "Frist = legal deadline; do not translate as 'reminder'."]
+
+## Bilingual policy
+
+[If applicable. Example: "All user-facing strings exist in locales/de/translation.json AND locales/en/translation.json at commit time."]
