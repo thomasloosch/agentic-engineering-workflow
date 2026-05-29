@@ -28,15 +28,15 @@ List every file you'll touch. For each: create / modify / delete. This list is y
 
 ### Step 3 — Decompose into parallel work streams (if applicable)
 
-If the spec touches 4+ files across distinct concerns (e.g., backend route + DB migration + frontend component + i18n keys), spawn sub-agents to handle them in parallel.
+For specs touching multiple independent domains, follow the `dispatching-parallel-agents` skill. The skill defines the full pattern: when to parallelize, how to construct agent prompts, how to integrate results, and the failure modes to avoid.
 
-Example sub-agent split:
+Concrete example of decomposition for a typical full-stack feature:
 - Sub-agent A: backend route + tests
 - Sub-agent B: DB migration + seed data
 - Sub-agent C: frontend component + storybook
 - Sub-agent D: i18n keys in both locales + copy review
 
-Each sub-agent reports back. You merge their outputs.
+Each sub-agent's prompt must be focused, self-contained, and explicit about expected output. See the skill for prompt structure and integration checks.
 
 If the spec is small (3 or fewer files), do it sequentially yourself. Parallelism overhead isn't worth it for tiny changes.
 
