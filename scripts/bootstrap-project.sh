@@ -8,8 +8,10 @@
 #
 # What it does:
 #   - Creates .claude/ subdirectory structure in the target project
-#   - Symlinks agents, skills, commands, and engineering-standards from the workflow repo
+#   - Copies agents, skills, commands, and engineering-standards from the workflow repo
 #     (preserves project-local overrides if a non-symlink file already exists at the target)
+#   - Records a content-hash manifest (.claude/.asset-manifest) of every copied file,
+#     so staleness against the workflow repo is always detectable (see Piece 2 re-sync)
 #   - Scaffolds .claude/rules/ for path-scoped rules
 #   - Creates CLAUDE.md from template if one doesn't exist
 #   - Creates CLAUDE.local.md template (ephemeral, gitignored)
@@ -45,16 +47,49 @@ echo "Target project: $PROJECT_PATH"
 echo "Project name: $PROJECT_NAME"
 echo ""
 
+# ─── Asset manifest setup ─────────────────────────────────────────────────────
+# Records every workflow-sourced file copied into the project, with the SHA256 it
+# had at copy time. A file listed here is workflow-sourced and re-syncable; a file
+# NOT listed is a project-local override and must never be auto-overwritten.
+# Staleness = workflow repo's CURRENT sha256 for a path != the hash recorded here.
+
+MANIFEST="$PROJECT_PATH/.claude/.asset-manifest"
+SOURCE_COMMIT="$(git -C "$WORKFLOW_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+
+record_asset() {
+  # $1 = absolute path to the copied file in the project
+  # $2 = path relative to .claude/ to record in the manifest
+  local h
+  h="$(sha256sum "$1" | awk '{print $1}')"
+  printf '%s\t%s\n' "$2" "$h" >> "$MANIFEST"
+}
+
+init_manifest() {
+  # Truncate-and-regenerate: only workflow-sourced entries live here, and each
+  # bootstrap re-derives them, so regenerating from scratch is idempotent.
+  {
+    echo "# Asset manifest — agentic-engineering-workflow"
+    echo "# Workflow-sourced files copied at bootstrap, with content hashes."
+    echo "# Listed = workflow-sourced/re-syncable. Not listed = project override."
+    echo "# Stale if workflow repo's current sha256 for a path != the hash here."
+    echo "# Generated: $(date -I)"
+    echo "# Source: agentic-engineering-workflow @ $SOURCE_COMMIT"
+    echo "#"
+    printf '# <path-relative-to-.claude/>\t<sha256-at-copy-time>\n'
+  } > "$MANIFEST"
+}
+
 # ─── Step 1: Create .claude/ structure ────────────────────────────────────────
 
 echo "[1/12] Creating .claude/ directory structure..."
 mkdir -p "$PROJECT_PATH/.claude/"{agents,skills,commands,memory,logs,rules}
+init_manifest
 echo "       Done."
 
 # ─── Step 2: Symlink agents ────────────────────────────────────────────────────
 
-echo "[2/12] Symlinking agents..."
-agent_linked=0
+echo "[2/12] Copying agents..."
+agent_copied=0
 agent_overridden=0
 for agent in "$WORKFLOW_DIR/.claude/agents/"*.md; do
   [[ -e "$agent" ]] || continue
@@ -63,16 +98,18 @@ for agent in "$WORKFLOW_DIR/.claude/agents/"*.md; do
     echo "       Preserving local override: $(basename "$agent")"
     agent_overridden=$((agent_overridden + 1))
   else
-    ln -sfn "$agent" "$target"
-    agent_linked=$((agent_linked + 1))
+    rm -f "$target"   # clear a stale symlink from older (symlink-era) bootstraps
+    cp "$agent" "$target"
+    record_asset "$target" "agents/$(basename "$agent")"
+    agent_copied=$((agent_copied + 1))
   fi
 done
-echo "       Symlinked $agent_linked agents (${agent_overridden} local overrides preserved)."
+echo "       Copied $agent_copied agents (${agent_overridden} local overrides preserved)."
 
 # ─── Step 3: Symlink skills ────────────────────────────────────────────────────
 
-echo "[3/12] Symlinking skills..."
-skill_linked=0
+echo "[3/12] Copying skills..."
+skill_copied=0
 skill_overridden=0
 for skill_dir in "$WORKFLOW_DIR/.claude/skills/"*/; do
   [[ -d "$skill_dir" ]] || continue
@@ -82,16 +119,20 @@ for skill_dir in "$WORKFLOW_DIR/.claude/skills/"*/; do
     echo "       Preserving local override: $skill_name"
     skill_overridden=$((skill_overridden + 1))
   else
-    ln -sfn "${skill_dir%/}" "$target"
-    skill_linked=$((skill_linked + 1))
+    rm -rf "$target"   # clear a stale symlink (or prior copy) before refresh
+    cp -r "${skill_dir%/}" "$target"
+    while IFS= read -r -d '' f; do
+      record_asset "$f" "skills/$skill_name/${f#"$target"/}"
+    done < <(find "$target" -type f -print0)
+    skill_copied=$((skill_copied + 1))
   fi
 done
-echo "       Symlinked $skill_linked skills (${skill_overridden} local overrides preserved)."
+echo "       Copied $skill_copied skills (${skill_overridden} local overrides preserved)."
 
 # ─── Step 4: Symlink commands ─────────────────────────────────────────────────
 
-echo "[4/12] Symlinking commands..."
-cmd_linked=0
+echo "[4/12] Copying commands..."
+cmd_copied=0
 cmd_overridden=0
 for cmd in "$WORKFLOW_DIR/.claude/commands/"*.md; do
   [[ -e "$cmd" ]] || continue
@@ -100,15 +141,17 @@ for cmd in "$WORKFLOW_DIR/.claude/commands/"*.md; do
     echo "       Preserving local override: $(basename "$cmd")"
     cmd_overridden=$((cmd_overridden + 1))
   else
-    ln -sfn "$cmd" "$target"
-    cmd_linked=$((cmd_linked + 1))
+    rm -f "$target"   # clear a stale symlink from older (symlink-era) bootstraps
+    cp "$cmd" "$target"
+    record_asset "$target" "commands/$(basename "$cmd")"
+    cmd_copied=$((cmd_copied + 1))
   fi
 done
-echo "       Symlinked $cmd_linked commands (${cmd_overridden} local overrides preserved)."
+echo "       Copied $cmd_copied commands (${cmd_overridden} local overrides preserved)."
 
 # ─── Step 5: Symlink engineering-standards.md ─────────────────────────────────
 
-echo "[5/12] Symlinking engineering-standards.md..."
+echo "[5/12] Copying engineering-standards.md..."
 SOURCE_STANDARDS="$WORKFLOW_DIR/docs/standards/engineering-standards.md"
 TARGET_STANDARDS="$PROJECT_PATH/.claude/engineering-standards.md"
 if [[ ! -f "$SOURCE_STANDARDS" ]]; then
@@ -116,11 +159,13 @@ if [[ ! -f "$SOURCE_STANDARDS" ]]; then
 elif [[ -e "$TARGET_STANDARDS" && ! -L "$TARGET_STANDARDS" ]]; then
   echo "       Preserving local override: engineering-standards.md"
 else
-  ln -sfn "$SOURCE_STANDARDS" "$TARGET_STANDARDS"
-  if [[ -L "$TARGET_STANDARDS" && -e "$TARGET_STANDARDS" ]]; then
-    echo "       Symlinked engineering-standards.md."
+  rm -f "$TARGET_STANDARDS"   # clear a stale symlink before copying through it
+  cp "$SOURCE_STANDARDS" "$TARGET_STANDARDS"
+  if [[ -f "$TARGET_STANDARDS" && ! -L "$TARGET_STANDARDS" ]]; then
+    record_asset "$TARGET_STANDARDS" "engineering-standards.md"
+    echo "       Copied engineering-standards.md."
   else
-    echo "       ERROR: symlink not created or doesn't resolve."
+    echo "       ERROR: copy not created or is unexpectedly a symlink."
     exit 1
   fi
 fi
