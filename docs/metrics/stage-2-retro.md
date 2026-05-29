@@ -1,0 +1,133 @@
+# Stage 2 Retrospective — Pre-flight Findings
+
+**Session:** 2026-05-29
+**Status:** Pre-flight complete. Jobs Radar **not yet bootstrapped** — this session never reached the originally-planned Stage 2 work because verification surfaced two blocking workflow bugs that had to be fixed first.
+
+This is the deliverable the handoff named as non-optional. It captures what broke, what was done, what's fixed, and what the findings mean for Jobs Radar and Stage 3.
+
+---
+
+## Executive summary
+
+The handoff assumed the workflow repo was the source of truth and that bootstrap worked, so Stage 2 would be: verify environment → bootstrap Jobs Radar → exercise the agent system. Verification falsified both assumptions:
+
+1. **The repo was not the source of truth.** Three live artifacts existed only in the deployed Windows config, untracked in git.
+2. **Bootstrap's symlink strategy was structurally broken** for the runtime Thomas actually uses (Claude Code desktop app over a `\\wsl.localhost` UNC path).
+
+Both were fixed, committed, and pushed. Had we bootstrapped Jobs Radar on the original assumptions, both bugs would have propagated into Jobs Radar — and later into Sovary and familienkalender. Finding them now is the session's value, and matches the handoff's own prediction that Stage 2 would reveal workflow bugs to fix rather than work around.
+
+---
+
+## Finding 1 — Repo was not the source of truth (RESOLVED)
+
+**Issue.** The handoff listed the global CLAUDE.md, the enforcement hooks, and the coordinator agent as closed v1 deliverables living in the workflow repo. In reality:
+
+- The **global CLAUDE.md** (89 lines / 5703 bytes), loaded by Claude Code from the deployed `~/.claude/CLAUDE.md`, was **untracked** — present nowhere in the repo. `.gitignore` excluded only `settings.local.json`, so this was an accidental sync gap, not a deliberate exclusion.
+- All **6 enforcement hooks** existed only in deployed Windows config; the repo had no `hooks/` directory at all. Bootstrap never symlinked hooks.
+- The **coordinator agent** in the repo was stale (May 14): it was missing the "Agent discovery" block that the live deployed copy had. That block is load-bearing — it instructs the coordinator to `ls` the agents dirs before claiming an agent doesn't exist, the exact failure Stage 2's routing test depends on avoiding.
+
+There were also two parallel `~/.claude` trees: the real one (Windows side, `/mnt/c/Users/Admin/.claude`) and a stale WSL2-side `~/.claude` (theme-only settings + 7 fossil agents from May 13). The desktop app reads the Windows-side config.
+
+**What was done.** Reconciled all three artifacts into the repo, deployed-Windows → repo, in three separate commits by intent:
+
+- `e59f2dd` — restored the agent-discovery block to the repo coordinator.
+- `db75da5` — tracked the 6 hooks under a new top-level `hooks/` (global-only; intentionally NOT added to bootstrap's symlink loop, since hooks guard user-level git behavior globally, not per-project).
+- `f5b64cd` — tracked the global CLAUDE.md at `docs/global-CLAUDE.md` (NOT repo root, to avoid Claude Code auto-loading it as the workflow repo's own project memory when the repo is opened in a session — verified against the official memory docs).
+
+All pushed to `origin/main`.
+
+**Status: fixed and pushed.** The repo is now genuinely the source of truth.
+
+---
+
+## Finding 2 — Bootstrap symlink strategy broken in the real runtime (RESOLVED)
+
+**Issue.** Bootstrap symlinked each project's `.claude/{agents,skills,commands}` and `engineering-standards.md` to **WSL2 absolute paths** (`/home/thomas/agentic-engineering-workflow/.claude/...`). Thomas opens projects via the Claude Code **desktop app, folder picker**, which reaches the WSL filesystem over a `\\wsl.localhost` UNC path on the Windows side. A symlink whose target is a Linux absolute path cannot be resolved across that boundary — accessing it throws `Input/output error`. So every bootstrapped project would have had agent/skill/command files that error on read: broken, and silently so.
+
+This matches Anthropic feature request #49933 (open, April 2026): the desktop app runs Windows-side and accesses WSL files over UNC, which breaks symlinks and other POSIX semantics.
+
+**Decision.** Three options were weighed:
+- **A — open projects WSL-integrated** in the desktop app. Ruled out: the desktop app does not offer this (it's the subject of the open feature request); and the CLI-in-terminal alternative was rejected because Thomas does not want to work in the terminal.
+- **B — bootstrap copies instead of symlinks.** Chosen. Keeps the desktop GUI workflow.
+- **C — move everything Windows-side.** Shelved as disproportionate; revisit only if in-place develop proves unreliable (it didn't — see Finding 3).
+
+**Cost of B, accepted.** Copies break single-source-of-truth: a project's copied assets go stale when the workflow repo changes. Mitigation: every copied file is recorded in a per-project **content-hash manifest** (`.claude/.asset-manifest`) with its SHA256 at copy time, so staleness is always *detectable* (workflow's current hash != recorded hash) and curable. Files not in the manifest are project-local overrides, never auto-overwritten. The manifest is content-hash keyed (not timestamp/version) so it cannot lie. The manifest is committed (not gitignored) so it travels with a clone.
+
+**What was done.** Modified `scripts/bootstrap-project.sh` (commit `adc9a3b`): symlink → copy for all four asset types, plus manifest generation. Stale symlinks from older bootstraps are removed before copying (verified it does not write through the symlink to the source repo). Applied via a tested match-or-abort Python editor. Verified end-to-end in a sandbox (happy path, override preservation, symlink-migration, hash integrity) **and** in the real desktop-app runtime (copied files readable over UNC; Windows Node does real file I/O across the share).
+
+**Status: fixed, committed (`adc9a3b`), pushed.**
+
+**Deferred (Piece 2):** a `sync-project-assets` re-sync command that reads the manifest and refreshes stale workflow-sourced files without clobbering overrides. Deferred until first drift is actually felt, to avoid building re-sync machinery before its ergonomics are known. **Note:** in the desktop runtime nothing auto-flags drift (hooks dormant — see Finding 4), so drift detection is pull-based: run the re-sync command at the start of project work or after changing a shared agent.
+
+---
+
+## Finding 3 — The actual runtime model (CHARACTERIZED)
+
+It took three probes and two wrong guesses to model the runtime correctly. The truth:
+
+**The desktop app's Bash tool is Git Bash (MINGW64 / MSYS2) running on Windows, reaching the project over `\\wsl.localhost`.**
+
+Evidence: `uname` reports MINGW64; `node`/`npm` resolve to `/c/Program Files/nodejs/` (Windows binaries); `git` is `/mingw64/bin/git` (Git-for-Windows); `pwd` returns the UNC path; there is no `/home/thomas` mount in this shell. Windows Node does real file I/O across the share, and `process.platform` is `win32`.
+
+This is neither "WSL bash" nor "Windows cmd/PowerShell" — both of which were asserted and falsified mid-session. The corrected model is the constraint set everything downstream inherits.
+
+**Implications now known true:**
+- **Path dialect:** relative paths and `//wsl.localhost/ubuntu/home/thomas/...` UNC paths work in agent commands; bare Linux-absolute paths (`/home/thomas/...`) do not.
+- **Toolchain split:** agents develop/test with **Windows Node** over UNC; production is **Linux Node** on Hetzner. Plus Thomas's own WSL Node for manual work. Three Node environments.
+
+---
+
+## Finding 4 — Enforcement hooks are structurally dormant in this runtime (CHARACTERIZED)
+
+Locked-decision #9 said "hooks dormant in Desktop, active in terminal." Now explained, not just observed: the hooks are bash scripts wired as Claude Code PreToolUse hooks, referencing Linux `$HOME/.claude/...` paths. In the MINGW runtime, `$HOME` is the Windows user home and the hooks' assumptions don't hold, so they do not fire correctly. This is structural, not a misconfiguration — the enforcement layer was built for a Unix shell the agent runtime isn't.
+
+**Consequence:** for all desktop-app work (which is how Jobs Radar will be built), git-discipline enforcement (`block-git-add-all`, `block-force-push-to-main`, staleness checks) is **advisory only** — it's on the human and on Claude to hold it manually. This held true throughout this session; every git step was verified by hand.
+
+---
+
+## Finding 5 — Dev/prod runtime gap (CONSTRAINT FOR JOBS RADAR SPEC)
+
+Jobs Radar will be **developed** under Git Bash / Windows Node / UNC but **deployed** on Linux / cron / Hetzner CPX22. Code authored/tested where `process.platform === 'win32'` runs in production where it's `'linux'`. The spec must mandate:
+- Portable Node only — no Linux-only path assumptions at dev time, no platform-sensitive code (path separators, `os.homedir()`, line endings, shell-outs) that passes in dev and fails on Hetzner.
+- **Hetzner is the source of truth for "does it actually run."** Dev-time green is necessary, not sufficient.
+
+---
+
+## Finding 6 — File creation in this runtime: a silent-corruption trap (CONSTRAINT)
+
+`printf` with escape sequences (`\n`) does **not** survive the Git Bash → Windows Node boundary cleanly — observed mid-session producing mangled file content that looked written but wasn't. Quoted-delimiter heredocs (`<< 'EOF'`) work. This is the same family of boundary bug the handoff warns about for WSL2 file creation.
+
+**Rule for agents writing files in this runtime:** use quoted-delimiter heredocs or editor/Write tools — **never `printf`-with-escapes**. This belongs in the Jobs Radar spec and arguably in the global file-creation rules.
+
+---
+
+## Process lessons (about how the work was done)
+
+- **Asserting a model before gathering the full probe set cost three turns.** The runtime was mislabeled twice ("Windows shell," then "WSL bash") before `uname` + `which` + `pwd` together gave the truth. Standing rule going forward: never label the agent runtime without all three in hand.
+- **A "successful" commit message is not a clean-tree check.** A commit reported success while leaving an unstaged mode change (README 100644-vs-disk on drvfs). Always read `git status --short` for emptiness after committing.
+- **WSL2/drvfs sets a spurious exec bit on every `/mnt/c` file.** Resolved by `git config core.fileMode false` per WSL2 repo, plus explicit `git update-index --chmod` for intentional mode changes. The earlier "normalize modes after each copy" instinct was wrong — it fought the mount and created phantom unstaged deltas.
+- **Verification harness bugs can produce false failures.** A hash-integrity check ran under `/bin/sh` instead of bash twice and reported false FAILs. When a check fails, confirm the checker ran correctly before believing the failure.
+- **Over-gating cost the human.** Verification gates were placed before nearly every commit; they caught real failures at maybe three moments but otherwise turned the session into blind copy-paste for Thomas. Calibration going forward: gate only steps with a genuine failure mode.
+
+---
+
+## Open items (for post-Stage-2 / Stage 3)
+
+- **#2** — Delete the stale WSL2-side `~/.claude` (theme-only settings + fossil agents). Safe; do during consolidation.
+- **#4** — `settings.local.json` (repo, gitignored) vs deployed `settings.json` (live, with hooks + permissions) are different files by purpose, not drifted copies. Document the convention; low priority.
+- **#5** — `.backup-*` files in `scripts/` and `templates/`. The `.gitignore` appears to match `*.backup*` (the migration backup didn't show as untracked), so these are likely local-only, not committed cruft. Confirm with `git ls-files | grep backup`; downgrade to optional tidy if untracked.
+- **#8 / sync routine** — The `chore: sync` routine that previously copied workflow assets did not verify content (the repo coordinator went stale despite a sync commit existing). Build a sync script that diffs and refuses on conflict rather than overwriting by timestamp.
+- **#11** — GitHub branch protection requires PRs on `main`; this contradicts locked-decision #7 (direct-push solo workflow). Thomas confirmed the PR rule was an unintended default. **Action (Thomas, settings):** relax or remove the "require PR" ruleset so pushes stop generating bypass warnings.
+- **Piece 2** — `sync-project-assets` re-sync command (see Finding 2), deferred to first felt drift.
+
+---
+
+## What success looks like from here
+
+Pre-flight is done: repo reconciled and pushed, runtime modeled correctly, bootstrap fixed/committed/pushed. **Jobs Radar has not been started.** Next session, in order:
+
+1. Bootstrap Jobs Radar for real: create `~/projects/jobs-radar` (or clone the empty repo), run the now-fixed bootstrap, verify copies + manifest land.
+2. Customize Jobs Radar's CLAUDE.md with the handoff's locked constraints (Node.js, daily cron on Hetzner, Migadu SMTP, state files, ~€2/mo target) **plus** the runtime constraints from this session: portable Node (Finding 5), file-creation dialect rule (Finding 6), UNC/relative path discipline (Finding 3).
+3. `/start-session` in the desktop app and watch the coordinator route to spec-writer — the first real test of the agent system, which is the actual point of Stage 2.
+
+The whole pre-flight existed to make step 3 a true test of the system rather than a test of a broken setup.
