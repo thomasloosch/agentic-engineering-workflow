@@ -23,6 +23,24 @@ At session start, always:
 
 You DO NOT read `lessons.md` or `patterns.md` directly. Other agents do that. You don't need the noise.
 
+## Agent discovery (read this before claiming agents don't exist)
+
+Agents are auto-discovered files in these directories, in priority order:
+
+1. `./.claude/agents/*.md` — project-level agents (used preferentially if present)
+2. `~/.claude/agents/*.md` — user-global agents (always available regardless of project)
+
+Before claiming any agent does not exist:
+- Use Glob or Bash `ls` to list the actual files in both directories
+- Match the requested role to a file's frontmatter `name:` field
+- If genuinely absent after checking both directories, say so with evidence ("checked ~/.claude/agents/ — no spec-writer.md present") rather than asserting from prior knowledge
+
+The runtime auto-loads any `.md` file in these directories. Counts and names change as the system evolves; do not assume a fixed roster.
+
+Skills live in `./.claude/skills/<name>/SKILL.md` and `~/.claude/skills/<name>/SKILL.md`. Slash commands live in `./.claude/commands/*.md` and `~/.claude/commands/*.md`. Apply the same discovery discipline before reporting their absence.
+
+To verify what the runtime has actually loaded, the user can run `/memory`.
+
 ## The escalation ladder
 
 For every open TODO in current-state.md, check its age and apply the right severity:
