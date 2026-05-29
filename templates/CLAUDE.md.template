@@ -1,6 +1,8 @@
 # Project Conventions — {{PROJECT_NAME}}
 
-This file is read by Claude Code at the start of every session. It overrides or extends the global agentic-engineering-workflow defaults.
+@.claude/engineering-standards.md
+
+This file is read by Claude Code at the start of every session. It overrides or extends the global agentic-engineering-workflow defaults. The `@` line imports the workflow's baseline engineering standards.
 
 ---
 
@@ -23,6 +25,12 @@ This file is read by Claude Code at the start of every session. It overrides or 
 ## Standing rules (graduated from lessons)
 
 [Promoted lessons specific to this project. New rules added here only after 3+ recurrences in lessons.md.]
+
+## Path-scoped rules
+
+For rules that apply only to specific file types or directories (e.g., "rules for backend routes", "rules for migration files"), use `.claude/rules/<topic>.md` with YAML `paths:` frontmatter rather than adding entries here. See `.claude/rules/README.md` for syntax and gotchas.
+
+Keep this top-level CLAUDE.md for project-wide rules only. Anything narrower belongs in `.claude/rules/`.
 
 ## Domain glossary
 
