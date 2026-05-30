@@ -131,3 +131,20 @@ Pre-flight is done: repo reconciled and pushed, runtime modeled correctly, boots
 3. `/start-session` in the desktop app and watch the coordinator route to spec-writer — the first real test of the agent system, which is the actual point of Stage 2.
 
 The whole pre-flight existed to make step 3 a true test of the system rather than a test of a broken setup.
+
+---
+
+## Finding 7 — First live agent run: documented constraint not honored (CAPTURED, iterate next stage)
+
+**What happened.** On the first real `/start-session`, the coordinator routed correctly (coordinator → spec-writer, agent-discovery block fired, no misroute — the core Stage 2 goal met). But of the two dispatched sub-agents, **one failed because it tried to write the spec to a Linux-absolute path**, the exact failure Finding 3 documents. It recovered (spec landed at `.claude/specs/architecture.md`, reachable via UNC), but the failure occurred despite the runtime constraint being known and written into the project CLAUDE.md.
+
+**The finding is the gap, not the failure.** Documenting a constraint in CLAUDE.md is not the same as the agent honoring it at dispatch time. The constraint existed; the agent didn't apply it. Possible causes (to investigate, not assumed): the sub-agent didn't read CLAUDE.md before acting, the constraint wasn't surfaced in the dispatch prompt, or CLAUDE.md isn't reliably loaded for sub-agents in this runtime.
+
+**Interim mitigation (this run).** Runtime constraints were injected directly into the coordinator's dispatch message to the Implementation Engineer, rather than relying on CLAUDE.md being read. This made the constraint travel with the task.
+
+**To iterate next stage.** Decide where runtime constraints must live so agents actually honor them — candidates: (a) dispatch-prompt injection by the coordinator (worked this run, but manual), (b) a `.claude/rules/` path-scoped rule that loads when code files are touched, (c) verifying sub-agents load project CLAUDE.md at all in the desktop/UNC runtime. The principle: a constraint that lives only where the agent doesn't read it is not a constraint. This is the highest-value workflow fix surfaced by the first live run.
+
+**Also noted this run (minor):**
+- Folder picker cannot browse the WSL filesystem (Windows-side app); projects must be opened by pasting the `\\wsl.localhost\...` UNC path. Operational, not a bug.
+- "Pull request status couldn't be checked" error in the app — same root cause as open item #11 (unintended PR-required ruleset). Benign; did not block the spec run.
+- Spec-writer correctly pushed back on a handoff assumption (GitHub Trending is repos, not jobs) and deferred it. Good first-principles behavior by the agent, worth reinforcing.
