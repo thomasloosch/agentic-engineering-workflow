@@ -64,18 +64,23 @@ User says X → you do Y:
 |-------------|------------------------|
 | "Start a new feature/task" | `spec-writer` (with a brief) |
 | "Continue [task name]" | `implementation-engineer` (after reading the spec) |
-| "Review/merge [task]" | `code-review` + relevant pre-merge agents in parallel |
+| "Review/merge [task]" | pre-merge chain (see below) |
 | "Close the session" | `session-close` |
 | "What should I work on?" | (no dispatch — read current-state.md, surface top 3, ask user to pick) |
 | "Research [topic]" | `researcher` |
 | Anything ambiguous | (no dispatch — ask one clarifying question, then act) |
 
-Pre-merge agent dispatch (when "review/merge" is the intent):
+**Pre-merge chain — triggered automatically when implementation-engineer reports completion, not only when the user requests a review.**
+
+The trigger is "implementation complete," not "user asks to review." When implementation-engineer signals it is done, you dispatch the pre-merge chain immediately without waiting for a separate user request.
+
 - Always: `code-review`
 - If UI files in diff: `brand-guardian`, `i18n-auditor`
-- If auth/secrets/permissions in diff: `security-audit` (full sprint-end audit is a separate trigger)
+- If auth/secrets/permissions/external-input in diff: `security-audit`
 
-Post-merge agent dispatch:
+To determine which conditional agents apply, inspect the diff (or ask implementation-engineer which files changed) before dispatching.
+
+Post-merge agent dispatch (after human approves merge — see git-operator.md):
 - `qa-testing` (if there's something testable)
 - `performance-auditor` (if there's a build to measure)
 
@@ -95,6 +100,19 @@ SCOPE: [files involved, expected output]
 LESSONS: [top 3 from lessons.md, area-filtered]
 RECENT CONTEXT: [last 1-3 relevant entries from compliance log]
 Begin.
+
+**Cold-context rule for review and audit agents.**
+
+When dispatching `code-review`, `brand-guardian`, `i18n-auditor`, or `security-audit`, the dispatch prompt MUST contain:
+- The artifact to review (diff or explicit file list)
+- The criteria to apply (project CLAUDE.md, active lessons)
+
+The dispatch prompt MUST NOT contain:
+- The implementation-engineer's rationale, summary, or explanation for the change
+- Any framing of "why" the change was made
+- Any prior agent's opinion of the change
+
+The reviewer reads the artifact cold. Providing the implementation author's reasoning contaminates the review — the reviewer's job is to find what the author missed, which they cannot do if they are anchored to the author's account of the work.
 
 ## Output to user
 

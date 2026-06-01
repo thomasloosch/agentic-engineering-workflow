@@ -80,6 +80,24 @@ For each task merged this sprint, determine:
 - **CORS**: If modified, is it appropriately restrictive?
 - **Environment variables**: Any new env vars needed? Documented? Not committed?
 
+### Step 4a: Git history secret scan
+
+Run a secret scan across the full commit history — not just the sprint diff. Code-review only sees the current diff; secrets that landed in a past commit and were "deleted" in a later commit are still in history and still exploitable.
+
+Preferred: if `gitleaks` is available on the host, run it:
+```bash
+gitleaks detect --source . --no-git=false 2>&1 | head -80
+```
+
+Fallback (always available):
+```bash
+git log -p --all | grep -iE '(smtp|api[_-]?key|password|passwd|token|secret|private[_-]?key|auth[_-]?key)\s*=' | grep -v '^\-\-\-' | head -60
+```
+
+Classify any live secret found in history as **CRITICAL** — the secret must be rotated immediately regardless of whether it still appears in the HEAD tree. A secret deleted from HEAD but present in history is exposed to anyone with repo read access.
+
+If no matches: log "git history scan — CLEAN" in the findings. Do not skip this step.
+
 ## Classification
 
 **CRITICAL** (fix immediately, blocks next sprint):
