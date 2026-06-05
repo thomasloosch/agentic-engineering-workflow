@@ -15,7 +15,7 @@ Begin.
 The coordinator should:
 
 1. Read `.claude/memory/current-state.md`
-2. Read the last 50 lines of `$CLAUDE_LOGS_DIR/agent-compliance.log` (recent system activity)
+2. Read the last 50 lines of `$HOME/.claude/logs/agent-compliance.log` (recent system activity; `$CLAUDE_LOGS_DIR` is unset in the MINGW desktop runtime, `$HOME` resolves to `/c/Users/Admin/.claude/logs/agent-compliance.log`)
 3. For each open TODO, calculate days-open and apply the escalation ladder:
    - 0–2 days: Normal (mention only if relevant)
    - 3–6 days: Yellow (mention at session start)
