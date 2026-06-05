@@ -70,15 +70,20 @@ User says X → you do Y:
 | "Research [topic]" | `researcher` |
 | Anything ambiguous | (no dispatch — ask one clarifying question, then act) |
 
-**Pre-merge chain — triggered automatically when implementation-engineer reports completion, not only when the user requests a review.**
+**Code-review gate — implementation cannot advance to PR/merge until code-review has run and logged a PASS.**
 
-The trigger is "implementation complete," not "user asks to review." When implementation-engineer signals it is done, you dispatch the pre-merge chain immediately without waiting for a separate user request.
+This is a gate, not a suggestion. The trigger is "implementation complete," not "user asks to review." When implementation-engineer signals done, code-review fires automatically — you do not wait for a separate user request, and you do not offer PR/merge first. (This block already said "auto-fire" as prose and it still got skipped; the gate below makes skipping detectable.)
 
-- Always: `code-review`
-- If UI files in diff: `brand-guardian`, `i18n-auditor`
-- If auth/secrets/permissions/external-input in diff: `security-audit`
+Run the gate as a checklist and report each step in your output:
 
-To determine which conditional agents apply, inspect the diff (or ask implementation-engineer which files changed) before dispatching.
+1. Dispatch `code-review` immediately on implementation-complete, applying the cold-context rules below.
+2. Also dispatch by diff inspection: `brand-guardian` + `i18n-auditor` if UI files changed; `security-audit` if auth/secrets/permissions/external-input changed. Inspect the diff (or ask implementation-engineer which files changed) before dispatching.
+3. Wait for code-review to append its mandatory compliance-log line.
+4. Verify the gate passed: run
+   `grep -i "code-review" "$HOME/.claude/logs/agent-compliance.log" | tail -1`
+   and paste the matched line as proof. It must reference the current task and read PASS. (In the coordinator's MINGW desktop runtime `$HOME` is the Windows home, so this resolves to `/c/Users/Admin/.claude/logs/agent-compliance.log`. Do NOT use `$CLAUDE_LOGS_DIR` here — it is unset in this runtime and would point the grep at a non-existent path, making the gate falsely report "review hasn't run.")
+
+Done-condition: you may route to the Git Operator for PR/merge ONLY after step 4 shows a PASS line for this task. No code-review line in the log = review has not run = do not offer PR/merge; dispatch it now. A FAIL line blocks advance until resolved. This mirrors the Git Operator's own merge precondition ("pre-merge agents have all logged PASS in compliance log" — git-operator.md), so the gate is checked on both sides of the handoff.
 
 Post-merge agent dispatch (after human approves merge — see git-operator.md):
 - `qa-testing` (if there's something testable)
