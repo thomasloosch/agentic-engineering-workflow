@@ -20,3 +20,10 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Claude Code — local worktree checkouts (git plumbing, never committed)
+.claude/worktrees/
+
+# Claude Code — memory dir: ignore scratch, keep curated logs
+.claude/memory/*
+!.claude/memory/patterns.md
