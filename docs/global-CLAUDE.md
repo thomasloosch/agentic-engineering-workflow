@@ -54,6 +54,8 @@ Path-scoped rules in `.claude/rules/` with YAML `paths:` frontmatter — for rul
 
 Hooks at `~/.claude/hooks/` enforce things deterministically that CLAUDE.md can only advise. See `~/.claude/hooks/README.md` for what's installed. Hooks are the right home for any rule that must fire every time without exception.
 
+Settings split two ways. `settings.json` is tracked and shared — config that should be identical everywhere (a baseline permission set, shared hooks config), and it travels into bootstrapped projects. `settings.local.json` is gitignored and per-machine — machine paths, session-specific approvals, personal cruft. Default to local; promote a setting to `settings.json` only after confirming it is machine-independent (no UNC paths, no `wsl.exe` calls, no hardcoded timestamps). Today only `settings.local.json` exists — `settings.json` is introduced when something genuinely needs sharing, not before.
+
 Run `/memory` in any session to see which instruction files Claude actually loaded. Run `/hooks` to see which hooks are configured.
 
 ---
