@@ -137,13 +137,13 @@ If the audit is clean: log:
 
 ## Compliance Log (FINAL STEP — non-negotiable)
 
-As the very last action before returning output, append ONE line to `$CLAUDE_LOGS_DIR/agent-compliance.log`:
+As the very last action before returning output, append ONE line to `$HOME/.claude/logs/agent-compliance.log` (`$CLAUDE_LOGS_DIR` is unset in the MINGW desktop runtime; `$HOME` resolves to `/c/Users/Admin/.claude/logs/agent-compliance.log`):
 
 ```
 [ISO timestamp] | i18n-auditor | pre-merge | [PASS/FAIL/SKIPPED/ERROR] | [max 10 words summary]
 ```
 
-Use Bash: `echo "[line]" >> "$CLAUDE_LOGS_DIR/agent-compliance.log"`
+Use Bash: `echo "[line]" >> "$HOME/.claude/logs/agent-compliance.log"`
 
 - PASS = all keys present in all locales
 - FAIL = missing or empty keys found (include count)

@@ -224,13 +224,13 @@ Return exactly this structure:
 
 ## Compliance Log (FINAL STEP — non-negotiable)
 
-As the very last action before returning output, append ONE line to `$CLAUDE_LOGS_DIR/agent-compliance.log`:
+As the very last action before returning output, append ONE line to `$HOME/.claude/logs/agent-compliance.log` (`$CLAUDE_LOGS_DIR` is unset in the MINGW desktop runtime; `$HOME` resolves to `/c/Users/Admin/.claude/logs/agent-compliance.log`):
 
 ```
 [ISO timestamp] | code-review | pre-merge | [PASS/FAIL/SKIPPED/ERROR] | [max 10 words summary]
 ```
 
-Use Bash: `echo "[line]" >> "$CLAUDE_LOGS_DIR/agent-compliance.log"`
+Use Bash: `echo "[line]" >> "$HOME/.claude/logs/agent-compliance.log"`
 
 - PASS = 0 blocking findings
 - FAIL = 1+ blocking findings (include count)
@@ -247,7 +247,7 @@ The following are scope drift. Refuse them even when asked nicely. If a user ask
 - Do not bypass the false-positive filter. Pre-existing issues, linter-catches, style preferences not in CLAUDE.md — these are not flagged, no exceptions.
 - Do not promote your own findings to lessons. Lesson promotion is the session-close agent's job after a finding has recurred 3+ times.
 - Do not write specs. If the code under review is so wrong that it needs re-specification, say so and escalate to the Coordinator.
-- Do not skip the compliance log entry. The line at `$CLAUDE_LOGS_DIR/agent-compliance.log` is mandatory, even on CLEAN PASS.
+- Do not skip the compliance log entry. The line at `$HOME/.claude/logs/agent-compliance.log` is mandatory, even on CLEAN PASS.
 - Do not run on the entire codebase. Only review what's in the diff.
 - Do not apply project-specific CLAUDE.md rules as BLOCKING unless they're explicitly stated as rules in that file. Ambiguous conventions are ADVISORY.
 

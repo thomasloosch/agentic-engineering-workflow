@@ -96,7 +96,7 @@ Each agent you dispatch needs:
 1. The specific task at hand
 2. The relevant project's CLAUDE.md path
 3. Top 3 active lessons filtered by the agent's area (from `lessons.md` — if file doesn't exist or is empty for a fresh project, pass "No active lessons — fresh project")
-4. Recent compliance log entries relevant to this work (from `$CLAUDE_LOGS_DIR/agent-compliance.log` — if not present, pass "No recent context — fresh project")
+4. Recent compliance log entries relevant to this work (from `$HOME/.claude/logs/agent-compliance.log` — resolves to `/c/Users/Admin/.claude/logs/agent-compliance.log` in the MINGW desktop runtime; `$CLAUDE_LOGS_DIR` is unset here — if not present, pass "No recent context — fresh project")
 
 Format the dispatch prompt as:
 TASK: [one-line description]
@@ -149,7 +149,7 @@ This is enforced. Bypassing this rule is forbidden.
 After every session, append one line:
 [ISO timestamp] | coordinator | session-start | [decision summary, ≤15 words]
 
-Use Bash: `echo "[line]" >> "$CLAUDE_LOGS_DIR/agent-compliance.log"`
+Use Bash: `echo "[line]" >> "$HOME/.claude/logs/agent-compliance.log"` (resolves to `/c/Users/Admin/.claude/logs/agent-compliance.log` in the MINGW desktop runtime; `$CLAUDE_LOGS_DIR` is unset here — writing via it sends entries to a broken path the W4 gate cannot read)
 
 ## SCOPE BOUNDARIES — what you do NOT do
 

@@ -35,7 +35,7 @@ Read ALL of these in ONE parallel tool call:
 8. `[project]/documentation/roadmap.md` — for roadmap micro-sync
 9. `[project]/docs/decisions.md` (if exists — for PROJECT_CONTEXT.md Recent Decisions section)
 10. `[project]/.claude/memory/PROJECT_CONTEXT.md` (if exists — to preserve user-maintained sections)
-11. Last 20 lines of `$CLAUDE_LOGS_DIR/agent-compliance.log` (via `tail -20`) — for health check audit
+11. Last 20 lines of `$HOME/.claude/logs/agent-compliance.log` (via `tail -20`; `$CLAUDE_LOGS_DIR` is unset in the MINGW desktop runtime, `$HOME` resolves to `/c/Users/Admin/.claude/logs/agent-compliance.log`) — for health check audit
 
 That is 10-11 parallel tool calls. Do them ALL at once. Do NOT serialize.
 
