@@ -137,14 +137,17 @@ crontab -e
 ### Crontab footgun — user crontab has no username field
 
 `crontab -e` edits a **user crontab**, which has five time fields then the command:
+```
 0 7 * * * /usr/bin/node /opt/<service>/src/index.js
-│ │ │ │ │ └─ command
-└─┴─┴─┴─┴─ minute hour dom mon dow
+# fields: minute hour day-of-month month day-of-week, then command
+```
 
 A **system crontab** (`/etc/crontab`, `/etc/cron.d/*`) inserts a **sixth field —
 the username** — between schedule and command:
+```
 0 7 * * * thomas /usr/bin/node /opt/<service>/src/index.js
-└─ username (system crontab ONLY)
+#         ^^^^^^ username field — system crontab ONLY
+```
 
 If you paste a system-style line (with username) into a user crontab, cron tries
 to run the username as the command and the job silently fails. Match the line
