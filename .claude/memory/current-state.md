@@ -32,9 +32,10 @@ individual project repos. Separate from product work (Sovary); used to build it.
   production exercise of the agent system; surfaced workflow findings W1-W5.
 
 ## In flight / next
-- Batch 3 (workflow-repo half), remaining: doc fixes D2/D4/D5 into bootstrap/
-  engineering-standards (Node-via-NodeSource, deploy-key step, absolute cron
-  paths, user-crontab-no-username-field gotcha); retro open items #2/#4/#5/#8.
+- Batch 3 (workflow-repo half), remaining: deploy-facts discoverability — D2/D4/D5
+  already in docs/deployment.md; added "Related runbooks" pointer in
+  engineering-standards.md (GitHub URL, reaches all projects via @-import; not
+  duplicated — finding-G). Retro open items #2/#4/#5/#8.
 - Batch 4: spec-writer revision (W1/W2/W3), coordinator wiring (W4),
   behavioral-validation rule (W5), spec-reconciliation loop-close + living-
   versioned-spec convention codified, .gitattributes for CRLF churn, deferred
