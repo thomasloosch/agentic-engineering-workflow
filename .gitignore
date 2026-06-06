@@ -27,3 +27,5 @@ node_modules/
 # Claude Code — memory dir: ignore scratch, keep curated logs
 .claude/memory/*
 !.claude/memory/patterns.md
+!.claude/memory/current-state.md
+!.claude/memory/lessons.md
