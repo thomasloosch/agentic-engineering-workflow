@@ -16,7 +16,7 @@ You are the session-close agent. You run at the end of every session to capture 
 1. **Session number** (e.g., "Session 23")
 2. **Project directory** /e.g., ~/projects/myapp) 
 3. **What happened this session** — summary of work done, tasks completed, bugs found, corrections received
-4. **Top 3 active lessons** from `lessons.md` (priming context). If not provided, read them directly from `$CLAUDE_MEMORY_DIR/lessons.md`.
+4. **Top 3 active lessons** from `lessons.md` (priming context). If not provided, read them directly from `.claude/memory/lessons.md`.
 5. **Current date**
 6. **Corrections count** — how many corrections the user gave this session (0 = skip self-learning)
 
@@ -28,10 +28,10 @@ Read ALL of these in ONE parallel tool call:
 1. `git status && git log -1 --oneline && git rev-list --count origin/main..HEAD 2>/dev/null && git rev-list --count HEAD..origin/main 2>/dev/null` in the project directory (ONE Bash call — captures dirty state, latest commit, ahead/behind origin)
 2. `[project]/pm/sprint-board.md`
 3. `[project]/pm/next-session-brief.md`
-4. `$CLAUDE_MEMORY_DIR/priorities.md`
-5. `$CLAUDE_MEMORY_DIR/weekly-focus.md`
-6. `$CLAUDE_MEMORY_DIR/lessons.md` (skip if lessons provided in input)
-7. `$CLAUDE_MEMORY_DIR/patterns.md` (ONLY if corrections > 0)
+4. `.claude/memory/priorities.md`
+5. `.claude/memory/weekly-focus.md`
+6. `.claude/memory/lessons.md` (skip if lessons provided in input)
+7. `.claude/memory/patterns.md` (ONLY if corrections > 0)
 8. `[project]/documentation/roadmap.md` — for roadmap micro-sync
 9. `[project]/docs/decisions.md` (if exists — for PROJECT_CONTEXT.md Recent Decisions section)
 10. `[project]/.claude/memory/PROJECT_CONTEXT.md` (if exists — to preserve user-maintained sections)
@@ -59,12 +59,12 @@ You now have everything you need. Write/edit up to 9 files in a SINGLE parallel 
 - Open bugs
 - Key lessons ("Do Not Repeat" — top 5 from lessons.md by frequency)
 
-**3. priorities.md** — Edit `$CLAUDE_MEMORY_DIR/priorities.md`:
+**3. priorities.md** — Edit `.claude/memory/priorities.md`:
 - Mark completed commitments as done (strikethrough)
 - Add any new inbox items captured during session
 - Apply deadline escalation: > 7 days (plain), 3-7 days (YELLOW), < 3 days (RED), overdue (CRITICAL)
 
-**4. weekly-focus.md** — Edit `$CLAUDE_MEMORY_DIR/weekly-focus.md`:
+**4. weekly-focus.md** — Edit `.claude/memory/weekly-focus.md`:
 - ONE THING THIS WEEK (strategic goal)
 - Sprint progress bar
 - NOW / NEXT priorities
@@ -81,7 +81,7 @@ You now have everything you need. Write/edit up to 9 files in a SINGLE parallel 
 - Corrections received
 - Next priorities
 
-**6. session-checkpoint.md** — Overwrite `$CLAUDE_MEMORY_DIR/session-checkpoint.md`:
+**6. session-checkpoint.md** — Overwrite `.claude/memory/session-checkpoint.md`:
 
 ```markdown
 ---
@@ -123,7 +123,7 @@ type: project
 - Do NOT audit items unrelated to this session's work — only touch items that match completed work.
 - If zero roadmap items match this session's work, skip this file entirely.
 
-**8. boot.md** — Overwrite `$CLAUDE_MEMORY_DIR/boot.md`:
+**8. boot.md** — Overwrite `.claude/memory/boot.md`:
 
 ```
 # SESSION BOOT — Generated [date] (session-close agent, [Project] Session N)
@@ -264,7 +264,7 @@ Write edits to lessons.md and/or patterns.md in parallel.
 
 **Step 4a: Weekly report**
 
-Generate weekly report from patterns.md, lessons.md, sprint-board.md, and this session's summary. Write to `$CLAUDE_MEMORY_DIR/weekly-report.md` (overwrite previous).
+Generate weekly report from patterns.md, lessons.md, sprint-board.md, and this session's summary. Write to `.claude/memory/weekly-report.md` (overwrite previous).
 
 Template:
 
@@ -393,7 +393,7 @@ Return EXACTLY this:
 ## Rules
 
 - **TWO BURSTS MAXIMUM.** Step 1 = one read burst. Step 2 = one write burst (up to 9 files — roadmap.md skipped if no items match). That's the whole job. Steps 3-4 are conditional extras.
-- Use ABSOLUTE paths for all memory files (`$CLAUDE_MEMORY_DIR/`).
+- Use project-relative paths for all memory files (`.claude/memory/`) — the running project's own memory dir. Do not use `$CLAUDE_MEMORY_DIR`: it is unset in the MINGW desktop runtime.
 - If a file doesn't exist yet, create it with the correct structure.
 - If git status shows uncommitted changes, WARN but do NOT commit or discard.
 - Preserve existing completed items in priorities.md (strikethrough, don't delete).

@@ -16,8 +16,8 @@ You operate on ANY project. Security requirements are read from the project's CL
 1. **Project directory** — the project root
 2. **Sprint scope** — which tasks were merged this sprint (task numbers, branch names, or commit range)
 3. **Project CLAUDE.md path** — read for project-specific security conventions
-4. **Active lessons** — from `lessons.md`, filtered to areas: **backend, security, architecture**. Sorted by Frequency descending, top 3. If not provided, read directly from `$CLAUDE_MEMORY_DIR/lessons.md` and apply the same filter (ACTIVE status, Area in [backend, security, architecture], sort by Frequency desc, top 3). If fewer than 3 match, fill remaining slots with highest-frequency active lessons regardless of area.
-5. **Recent [SECURITY] entries** — from `patterns.md`. If not provided, read them directly from `$CLAUDE_MEMORY_DIR/patterns.md`.
+4. **Active lessons** — from `lessons.md`, filtered to areas: **backend, security, architecture**. Sorted by Frequency descending, top 3. If not provided, read directly from `.claude/memory/lessons.md` (project-relative — the running project's own memory dir; `$CLAUDE_MEMORY_DIR` is unset in the MINGW desktop runtime) and apply the same filter (ACTIVE status, Area in [backend, security, architecture], sort by Frequency desc, top 3). If fewer than 3 match, fill remaining slots with highest-frequency active lessons regardless of area.
+5. **Recent [SECURITY] entries** — from `patterns.md`. If not provided, read them directly from `.claude/memory/patterns.md`.
 
 ## Procedure
 
@@ -193,8 +193,8 @@ If audit is clean:
 ```
 
 ### File paths for self-learning
-- **patterns.md**: `$CLAUDE_MEMORY_DIR/patterns.md`
-- **lessons.md**: `$CLAUDE_MEMORY_DIR/lessons.md`
+- **patterns.md**: `.claude/memory/patterns.md`
+- **lessons.md**: `.claude/memory/lessons.md`
 
 ## Rules
 

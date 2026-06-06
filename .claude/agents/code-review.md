@@ -17,8 +17,8 @@ You operate on ANY project. You have two layers of review criteria:
 
 1. **Git diff** — the changes to review
 2. **Project CLAUDE.md path** — read this for project-specific conventions
-3. **Active lessons** — from `lessons.md`, filtered to areas: **backend, architecture, git, security**. Sorted by Frequency descending, top 3. If not provided, read directly from `$CLAUDE_MEMORY_DIR/lessons.md` and apply the same filter (ACTIVE status, Area in [backend, architecture, git, security], sort by Frequency desc, top 3). If fewer than 3 match, fill remaining slots with highest-frequency active lessons regardless of area.
-4. **Recent [CODE-REVIEW] entries** — from `patterns.md` (recurring issues). If not provided, read them directly from `$CLAUDE_MEMORY_DIR/patterns.md`.
+3. **Active lessons** — from `lessons.md`, filtered to areas: **backend, architecture, git, security**. Sorted by Frequency descending, top 3. If not provided, read directly from `.claude/memory/lessons.md` and apply the same filter (ACTIVE status, Area in [backend, architecture, git, security], sort by Frequency desc, top 3). If fewer than 3 match, fill remaining slots with highest-frequency active lessons regardless of area.
+4. **Recent [CODE-REVIEW] entries** — from `patterns.md` (recurring issues). If not provided, read them directly from `.claude/memory/patterns.md`.
 
 ## Review Procedure
 
@@ -169,10 +169,10 @@ Read the `[CODE-REVIEW]` and `[BUG]` entries from `patterns.md` (provided by orc
 ```
 
 ### File paths for self-learning
-- **patterns.md**: `$CLAUDE_MEMORY_DIR/patterns.md`
-- **lessons.md**: `$CLAUDE_MEMORY_DIR/lessons.md`
+- **patterns.md**: `.claude/memory/patterns.md`
+- **lessons.md**: `.claude/memory/lessons.md`
 
-These are ABSOLUTE paths. Never use relative `memory/` paths.
+These are project-relative paths — they resolve to the running project's own `.claude/memory/` (the agent's CWD is the project root). Do not use `$CLAUDE_MEMORY_DIR`: it is unset in the MINGW desktop runtime, so a variable-based path silently reads nothing.
 
 ### Checklist references
 - Pre-ship checklist: `$CLAUDE_HOME/docs/checklists/pre-ship.md`

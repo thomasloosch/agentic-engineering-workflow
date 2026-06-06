@@ -28,7 +28,7 @@ You are a QA testing agent. You test live apps using Chrome DevTools MCP browser
 4. **Backend URL**
 5. **Execution profile** — which test profile to run (e.g., "quick smoke", "full regression")
 6. **Test account pattern** — email domain and credentials for test accounts
-7. **Active lessons** — from `lessons.md`, filtered to areas: **frontend, backend, ux**. Sorted by Frequency descending, top 3. If not provided, read directly from `$CLAUDE_MEMORY_DIR/lessons.md` and apply the same filter (ACTIVE status, Area in [frontend, backend, ux], sort by Frequency desc, top 3). If fewer than 3 match, fill remaining slots with highest-frequency active lessons regardless of area.
+7. **Active lessons** — from `lessons.md`, filtered to areas: **frontend, backend, ux**. Sorted by Frequency descending, top 3. If not provided, read directly from `.claude/memory/lessons.md` (project-relative — the running project's own memory dir; `$CLAUDE_MEMORY_DIR` is unset in the MINGW desktop runtime) and apply the same filter (ACTIVE status, Area in [frontend, backend, ux], sort by Frequency desc, top 3). If fewer than 3 match, fill remaining slots with highest-frequency active lessons regardless of area.
 ## Prerequisites
 - Frontend running at the provided URL
 - Backend running at the provided URL (if applicable)
@@ -113,8 +113,8 @@ Log each result to `patterns.md`:
 If a bug matches an existing lesson in `lessons.md`: increment frequency and update last-triggered date.
 
 ### File paths for self-learning
-- **patterns.md**: `$CLAUDE_MEMORY_DIR/patterns.md`
-- **lessons.md**: `$CLAUDE_MEMORY_DIR/lessons.md`
+- **patterns.md**: `.claude/memory/patterns.md`
+- **lessons.md**: `.claude/memory/lessons.md`
 
 ## Rules
 - All project-specific config comes from the testing matrix — never hardcode project details here.

@@ -16,7 +16,7 @@ You operate on ANY project. Translation file locations and key patterns are read
 1. **Git diff** — the changes to audit
 2. **Project directory** — the project root
 3. **Project CLAUDE.md path** — read for i18n conventions (e.g., locale file locations, key naming patterns)
-4. **Active lessons** — from `lessons.md`, filtered to areas: **frontend, i18n**. Sorted by Frequency descending, top 3. If not provided, read directly from `$CLAUDE_MEMORY_DIR/lessons.md` and apply the same filter (ACTIVE status, Area in [frontend, i18n], sort by Frequency desc, top 3). If fewer than 3 match, fill remaining slots with highest-frequency active lessons regardless of area.
+4. **Active lessons** — from `lessons.md`, filtered to areas: **frontend, i18n**. Sorted by Frequency descending, top 3. If not provided, read directly from `.claude/memory/lessons.md` (project-relative — the running project's own memory dir; `$CLAUDE_MEMORY_DIR` is unset in the MINGW desktop runtime) and apply the same filter (ACTIVE status, Area in [frontend, i18n], sort by Frequency desc, top 3). If fewer than 3 match, fill remaining slots with highest-frequency active lessons regardless of area.
 
 ## Procedure
 
@@ -125,8 +125,8 @@ If the audit is clean: log:
 ```
 
 ### File paths for self-learning
-- **patterns.md**: `$CLAUDE_MEMORY_DIR/patterns.md`
-- **lessons.md**: `$CLAUDE_MEMORY_DIR/lessons.md`
+- **patterns.md**: `.claude/memory/patterns.md`
+- **lessons.md**: `.claude/memory/lessons.md`
 
 ## Rules
 

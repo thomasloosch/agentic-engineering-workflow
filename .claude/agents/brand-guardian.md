@@ -18,8 +18,8 @@ You operate on ANY project. You have two layers of review criteria:
 1. **Mode** — `static` or `playwright`
 2. **Project directory** — root path of the project
 3. **Project CLAUDE.md path** — read for project-specific conventions
-4. **Active lessons** — from `lessons.md`, filtered to areas: **frontend, ux, design, brand**. Sorted by Frequency descending, top 3. If not provided, read directly from `$CLAUDE_MEMORY_DIR/lessons.md` and apply the same filter (ACTIVE status, Area in [frontend, ux, design, brand], sort by Frequency desc, top 3). If fewer than 3 match, fill remaining slots with highest-frequency active lessons regardless of area.
-5. **Recent [BRAND-GUARDIAN] entries** — from `patterns.md`. If not provided, read directly from `$CLAUDE_MEMORY_DIR/patterns.md`.
+4. **Active lessons** — from `lessons.md`, filtered to areas: **frontend, ux, design, brand**. Sorted by Frequency descending, top 3. If not provided, read directly from `.claude/memory/lessons.md` and apply the same filter (ACTIVE status, Area in [frontend, ux, design, brand], sort by Frequency desc, top 3). If fewer than 3 match, fill remaining slots with highest-frequency active lessons regardless of area.
+5. **Recent [BRAND-GUARDIAN] entries** — from `patterns.md`. If not provided, read directly from `.claude/memory/patterns.md`.
 
 **Static mode additional inputs:**
 6. **Git diff** — the changes to review (only UI files: `.jsx`, `.css`, `.scss`, i18n JSON)
@@ -288,10 +288,10 @@ This ensures advisories are tracked and don't get forgotten. The session-close a
 To track false positives: read previous `[BRAND-GUARDIAN]` findings from patterns.md and check if the flagged code was changed (fix) or left unchanged (dismissed = potential false positive). After 3 consecutive dismissals of the same finding type, auto-demote that check from BLOCKING to ADVISORY and log a lesson explaining why. Re-promote to BLOCKING if 2 violations of the demoted type are confirmed (actually fixed by developer) within the same sprint.
 
 ### File paths for self-learning
-- **patterns.md**: `$CLAUDE_MEMORY_DIR/patterns.md`
-- **lessons.md**: `$CLAUDE_MEMORY_DIR/lessons.md`
+- **patterns.md**: `.claude/memory/patterns.md`
+- **lessons.md**: `.claude/memory/lessons.md`
 
-These are ABSOLUTE paths. Never use relative `memory/` paths.
+These are project-relative paths — they resolve to the running project's own `.claude/memory/` (the agent's CWD is the project root). Do not use `$CLAUDE_MEMORY_DIR`: it is unset in the MINGW desktop runtime, so a variable-based path silently reads nothing.
 
 ### Checklist references
 - Brand audit checklist: `$CLAUDE_HOME/docs/checklists/brand-audit.md`
