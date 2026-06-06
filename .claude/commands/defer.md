@@ -17,7 +17,7 @@ Example:
    - `deferred_to: YYYY-MM-DD`
    - `defer_reason: [reason]`
    - `defer_count: +1`
-3. Logs the deferral to `$HOME/.claude/logs/agent-compliance.log` (`$CLAUDE_LOGS_DIR` is unset in the MINGW desktop runtime; `$HOME` resolves to `/c/Users/Admin/.claude/logs/agent-compliance.log`):
+3. Logs the deferral to `$HOME/.claude/logs/agent-compliance.log` (`$CLAUDE_LOGS_DIR` is unset in the MINGW desktop runtime; `$HOME` resolves to `/c/Users/Admin/.claude/logs/agent-compliance.log`. Runtime-assumption: resolves in the MINGW desktop app where agents run; from WSL2 `$HOME` → `/home/thomas`'s separate real log — a documented-known, not an active failure):
 [ISO timestamp] | coordinator | defer | [item] deferred to [date] — reason: [reason]
 4. The item no longer triggers the escalation ladder until `deferred_to` date is reached
 

@@ -294,7 +294,7 @@ To track false positives: read previous `[BRAND-GUARDIAN]` findings from pattern
 These are project-relative paths — they resolve to the running project's own `.claude/memory/` (the agent's CWD is the project root). Do not use `$CLAUDE_MEMORY_DIR`: it is unset in the MINGW desktop runtime, so a variable-based path silently reads nothing.
 
 ### Checklist references
-- Brand audit checklist: `$HOME/.claude/docs/checklists/brand-audit.md` (`$CLAUDE_HOME` is unset in the MINGW desktop runtime; `$HOME/.claude` resolves to `/c/Users/Admin/.claude`. Windows-side only — absent under WSL2 `$HOME`.)
+- Brand audit checklist: `$HOME/.claude/docs/checklists/brand-audit.md` (`$CLAUDE_HOME` is unset in the MINGW desktop runtime; `$HOME/.claude` resolves to `/c/Users/Admin/.claude`. Windows-side only — absent under WSL2 `$HOME`. Documented-known, not an active failure — orchestration stays in the desktop app.)
 
 ---
 
@@ -403,7 +403,7 @@ Track these metrics across runs (logged in patterns.md `[METRICS]` lines, surfac
 
 ## Compliance Log (FINAL STEP — non-negotiable)
 
-As the very last action before returning output, append ONE line to `$HOME/.claude/logs/agent-compliance.log` (`$CLAUDE_LOGS_DIR` is unset in the MINGW desktop runtime; `$HOME` resolves to `/c/Users/Admin/.claude/logs/agent-compliance.log`):
+As the very last action before returning output, append ONE line to `$HOME/.claude/logs/agent-compliance.log` (`$CLAUDE_LOGS_DIR` is unset in the MINGW desktop runtime; `$HOME` resolves to `/c/Users/Admin/.claude/logs/agent-compliance.log`. Runtime-assumption: resolves in the MINGW desktop app where agents run; from WSL2 `$HOME` → `/home/thomas`'s separate real log — a documented-known, not an active failure):
 
 ```
 [ISO timestamp] | brand-guardian | [pre-merge/post-merge] | [PASS/FAIL/SKIPPED/ERROR] | [max 10 words summary]

@@ -15,7 +15,7 @@ Begin.
 The coordinator should:
 
 1. Read `.claude/memory/current-state.md`
-2. Read the last 50 lines of `$HOME/.claude/logs/agent-compliance.log` (recent system activity; `$CLAUDE_LOGS_DIR` is unset in the MINGW desktop runtime, `$HOME` resolves to `/c/Users/Admin/.claude/logs/agent-compliance.log`)
+2. Read the last 50 lines of `$HOME/.claude/logs/agent-compliance.log` (recent system activity; `$CLAUDE_LOGS_DIR` is unset in the MINGW desktop runtime, `$HOME` resolves to `/c/Users/Admin/.claude/logs/agent-compliance.log`. Runtime-assumption: resolves in the MINGW desktop app where agents run; from WSL2 `$HOME` → `/home/thomas`'s separate real log — a documented-known, not an active failure)
 3. For each open TODO, calculate days-open and apply the escalation ladder:
    - 0–2 days: Normal (mention only if relevant)
    - 3–6 days: Yellow (mention at session start)

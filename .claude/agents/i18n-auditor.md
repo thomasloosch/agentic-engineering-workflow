@@ -137,7 +137,7 @@ If the audit is clean: log:
 
 ## Compliance Log (FINAL STEP — non-negotiable)
 
-As the very last action before returning output, append ONE line to `$HOME/.claude/logs/agent-compliance.log` (`$CLAUDE_LOGS_DIR` is unset in the MINGW desktop runtime; `$HOME` resolves to `/c/Users/Admin/.claude/logs/agent-compliance.log`):
+As the very last action before returning output, append ONE line to `$HOME/.claude/logs/agent-compliance.log` (`$CLAUDE_LOGS_DIR` is unset in the MINGW desktop runtime; `$HOME` resolves to `/c/Users/Admin/.claude/logs/agent-compliance.log`. Runtime-assumption: resolves in the MINGW desktop app where agents run; from WSL2 `$HOME` → `/home/thomas`'s separate real log — a documented-known, not an active failure):
 
 ```
 [ISO timestamp] | i18n-auditor | pre-merge | [PASS/FAIL/SKIPPED/ERROR] | [max 10 words summary]
