@@ -72,3 +72,11 @@ A project's `CLAUDE.md` can override any rule with explicit justification:
 ```
 
 Overrides must include a reason. "Because I felt like it" is not a reason.
+
+## Related runbooks
+Procedures (not rules) that live outside this doc:
+- Deploying a Node cron service to Hetzner: see the deployment runbook at
+  https://github.com/thomasloosch/agentic-engineering-workflow/blob/main/docs/deployment.md
+  (covers NodeSource install, repo-scoped deploy key, absolute cron paths, and the
+  user-crontab footgun). Absolute URL because this file is copied into projects where
+  a relative docs/ path would not resolve.
