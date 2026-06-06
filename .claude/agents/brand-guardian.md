@@ -294,7 +294,7 @@ To track false positives: read previous `[BRAND-GUARDIAN]` findings from pattern
 These are project-relative paths — they resolve to the running project's own `.claude/memory/` (the agent's CWD is the project root). Do not use `$CLAUDE_MEMORY_DIR`: it is unset in the MINGW desktop runtime, so a variable-based path silently reads nothing.
 
 ### Checklist references
-- Brand audit checklist: `$CLAUDE_HOME/docs/checklists/brand-audit.md`
+- Brand audit checklist: `$HOME/.claude/docs/checklists/brand-audit.md` (`$CLAUDE_HOME` is unset in the MINGW desktop runtime; `$HOME/.claude` resolves to `/c/Users/Admin/.claude`. Windows-side only — absent under WSL2 `$HOME`.)
 
 ---
 

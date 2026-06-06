@@ -55,7 +55,7 @@ Manual control:
 - **YELLOW** = one cap exceeded but archival caught it this cycle
 - **RED** = multiple caps exceeded OR a RED-severity TODO escalation present
 
-The weekly indicator is appended to `$CLAUDE_HOME/health-log.md` (or equivalent). One line per week.
+The weekly indicator is appended to `$HOME/.claude/health-log.md` (or equivalent; `$CLAUDE_HOME` is unset in the MINGW desktop runtime, `$HOME/.claude` resolves to `/c/Users/Admin/.claude`, Windows-side only). One line per week.
 
 ## When this skill triggers
 

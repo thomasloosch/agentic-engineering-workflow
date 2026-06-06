@@ -175,9 +175,11 @@ Read the `[CODE-REVIEW]` and `[BUG]` entries from `patterns.md` (provided by orc
 These are project-relative paths — they resolve to the running project's own `.claude/memory/` (the agent's CWD is the project root). Do not use `$CLAUDE_MEMORY_DIR`: it is unset in the MINGW desktop runtime, so a variable-based path silently reads nothing.
 
 ### Checklist references
-- Pre-ship checklist: `$CLAUDE_HOME/docs/checklists/pre-ship.md`
-- QA fixed checklist: `$CLAUDE_HOME/docs/checklists/qa-fixed.md`
-- Brand audit checklist: `$CLAUDE_HOME/docs/checklists/brand-audit.md`
+- Pre-ship checklist: `$HOME/.claude/docs/checklists/pre-ship.md`
+- QA fixed checklist: `$HOME/.claude/docs/checklists/qa-fixed.md`
+- Brand audit checklist: `$HOME/.claude/docs/checklists/brand-audit.md`
+
+(`$CLAUDE_HOME` is unset in the MINGW desktop runtime; `$HOME/.claude` resolves to `/c/Users/Admin/.claude`, where these user-global checklists live. Windows-side only — under WSL2 `$HOME` is `/home/thomas`, where these files do not exist.)
 
 ---
 
