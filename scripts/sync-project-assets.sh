@@ -159,15 +159,31 @@ if [ "$APPLY" -eq 1 ] && { [ "${#TO_UPDATE[@]}" -gt 0 ] || [ "${#TO_READD[@]}" -
     echo "    wrote $path"
   done
 
-  # Rewrite manifest: preserve comment header, emit deduped path<TAB>hash.
+  # Rewrite manifest with a CANONICAL v2 header (no comment accretion):
+  #   - carry forward the immutable "# Generated:" (project birth) if present
+  #   - refresh "# Source:" to the repo's CURRENT commit (not the frozen one)
+  #   - emit a single "# Re-synced:" line (replaces any prior; never accretes)
+  #   - drop one-time/stale comments (migration provenance, old Source/Re-synced)
+  gen_line="$(grep -m1 '^# Generated:' "$MANIFEST" || true)"
+  repo_commit="$(git -C "$REPO_PATH" rev-parse --short HEAD 2>/dev/null || echo unknown)"
   tmp="$(mktemp)"
-  grep '^#' "$MANIFEST" > "$tmp" || true
-  echo "# Re-synced: $(date +%Y-%m-%d) from $REPO_PATH" >> "$tmp"
-  for path in "${ORDER[@]}"; do
-    printf '%s\t%s\t%s\n' "$path" "${RECORDED[$path]}" "${SRC[$path]}" >> "$tmp"
-  done
+  {
+    echo "# Asset manifest — agentic-engineering-workflow"
+    echo "# Workflow-sourced files copied at bootstrap, with content hashes."
+    echo "# Listed = workflow-sourced/re-syncable. Not listed = project override."
+    echo "# Stale if workflow repo's current sha256 for a path != the hash here."
+    echo "# Format: v2, 3 tab-separated columns (col 3 = repo-root-relative source path)."
+    if [ -n "$gen_line" ]; then echo "$gen_line"; fi
+    echo "# Source: agentic-engineering-workflow @ $repo_commit"
+    echo "# Re-synced: $(date +%Y-%m-%d) from $REPO_PATH"
+    echo "#"
+    printf '# <path-relative-to-.claude/>\t<sha256-at-copy-time>\t<source-path-relative-to-repo-root>\n'
+    for path in "${ORDER[@]}"; do
+      printf '%s\t%s\t%s\n' "$path" "${RECORDED[$path]}" "${SRC[$path]}"
+    done
+  } > "$tmp"
   mv "$tmp" "$MANIFEST"
-  echo "  manifest refreshed (deduped; updated hashes for synced files)."
+  echo "  manifest refreshed (canonical v2 header; source @ $repo_commit; hashes updated)."
 fi
 
 if [ "$n_conflict" -gt 0 ]; then
