@@ -57,11 +57,16 @@ MANIFEST="$PROJECT_PATH/.claude/.asset-manifest"
 SOURCE_COMMIT="$(git -C "$WORKFLOW_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
 record_asset() {
-  # $1 = absolute path to the copied file in the project
-  # $2 = path relative to .claude/ to record in the manifest
-  local h
+  # $1 = absolute path to the copied file in the project (hashed)
+  # $2 = path relative to .claude/ in the project   -> manifest column 1
+  # $3 = absolute path to the SOURCE file in the workflow repo. Pass the same
+  #      variable the cp used; column 3 is that path made repo-root-relative.
+  #      Derived per-asset from the real source, so an asset sourced outside
+  #      .claude/ (e.g. engineering-standards) is correct with no lookup.
+  local h src
   h="$(sha256sum "$1" | awk '{print $1}')"
-  printf '%s\t%s\n' "$2" "$h" >> "$MANIFEST"
+  src="${3#"$WORKFLOW_DIR"/}"   # repo-root-relative source path -> column 3
+  printf '%s\t%s\t%s\n' "$2" "$h" "$src" >> "$MANIFEST"
 }
 
 init_manifest() {
@@ -72,10 +77,11 @@ init_manifest() {
     echo "# Workflow-sourced files copied at bootstrap, with content hashes."
     echo "# Listed = workflow-sourced/re-syncable. Not listed = project override."
     echo "# Stale if workflow repo's current sha256 for a path != the hash here."
+    echo "# Format: v2, 3 tab-separated columns (col 3 = repo-root-relative source path)."
     echo "# Generated: $(date -I)"
     echo "# Source: agentic-engineering-workflow @ $SOURCE_COMMIT"
     echo "#"
-    printf '# <path-relative-to-.claude/>\t<sha256-at-copy-time>\n'
+    printf '# <path-relative-to-.claude/>\t<sha256-at-copy-time>\t<source-path-relative-to-repo-root>\n'
   } > "$MANIFEST"
 }
 
@@ -100,7 +106,7 @@ for agent in "$WORKFLOW_DIR/.claude/agents/"*.md; do
   else
     rm -f "$target"   # clear a stale symlink from older (symlink-era) bootstraps
     cp "$agent" "$target"
-    record_asset "$target" "agents/$(basename "$agent")"
+    record_asset "$target" "agents/$(basename "$agent")" "$agent"
     agent_copied=$((agent_copied + 1))
   fi
 done
@@ -122,7 +128,7 @@ for skill_dir in "$WORKFLOW_DIR/.claude/skills/"*/; do
     rm -rf "$target"   # clear a stale symlink (or prior copy) before refresh
     cp -r "${skill_dir%/}" "$target"
     while IFS= read -r -d '' f; do
-      record_asset "$f" "skills/$skill_name/${f#"$target"/}"
+      record_asset "$f" "skills/$skill_name/${f#"$target"/}" "${skill_dir%/}/${f#"$target"/}"
     done < <(find "$target" -type f -print0)
     skill_copied=$((skill_copied + 1))
   fi
@@ -143,7 +149,7 @@ for cmd in "$WORKFLOW_DIR/.claude/commands/"*.md; do
   else
     rm -f "$target"   # clear a stale symlink from older (symlink-era) bootstraps
     cp "$cmd" "$target"
-    record_asset "$target" "commands/$(basename "$cmd")"
+    record_asset "$target" "commands/$(basename "$cmd")" "$cmd"
     cmd_copied=$((cmd_copied + 1))
   fi
 done
@@ -162,7 +168,7 @@ else
   rm -f "$TARGET_STANDARDS"   # clear a stale symlink before copying through it
   cp "$SOURCE_STANDARDS" "$TARGET_STANDARDS"
   if [[ -f "$TARGET_STANDARDS" && ! -L "$TARGET_STANDARDS" ]]; then
-    record_asset "$TARGET_STANDARDS" "engineering-standards.md"
+    record_asset "$TARGET_STANDARDS" "engineering-standards.md" "$SOURCE_STANDARDS"
     echo "       Copied engineering-standards.md."
   else
     echo "       ERROR: copy not created or is unexpectedly a symlink."

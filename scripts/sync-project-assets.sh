@@ -66,17 +66,12 @@ REPO_CLAUDE="$REPO_PATH/.claude"
 
 hash_of() { sha256sum "$1" | cut -d' ' -f1; }
 
-# Resolve a manifest dest-path to its REPO source path.
-# Mirrors bootstrap-project.sh's copy logic: most assets map straight into
-# .claude/<path>, but engineering-standards.md is sourced from docs/standards/.
-# NOTE: this duplicates bootstrap's mapping. The correct long-term fix is to
-# record source paths in the manifest (a 3rd column) so this special-case dies.
-# Until then, an unmapped non-.claude source surfaces as SRC-GONE (fails safe).
+# Resolve a manifest path to its repo source, read from the manifest's 3rd
+# column (recorded at copy time by bootstrap). No hardcoded special-cases:
+# an asset sourced outside .claude/ carries its own source path. If the
+# source no longer exists in the repo, the caller's -f check reports SRC-GONE.
 repo_source_for() {
-  case "$1" in
-    engineering-standards.md) echo "$REPO_PATH/docs/standards/engineering-standards.md" ;;
-    *)                        echo "$REPO_CLAUDE/$1" ;;
-  esac
+  echo "$REPO_PATH/${SRC[$1]}"
 }
 
 # ─── Mode banner ──────────────────────────────────────────────────────────────
@@ -89,16 +84,25 @@ echo "  repo:    $REPO_PATH"
 echo "  project: $PROJECT_PATH"
 echo
 
-# ─── Parse manifest, dedupe (tolerate bootstrap double-write; last wins) ──────
-# Read path<TAB>hash, skip comments/blanks. Last occurrence of a path wins.
+# ─── Parse manifest (v2: path<TAB>hash<TAB>source), dedupe; last wins ─────────
+# Guard: a pre-v2 2-column manifest must REFUSE, not be misread (its column 2
+# hash would be mistaken for a source path). Old artifact + new reader -> stop.
 declare -A RECORDED
+declare -A SRC
 ORDER=()
-while IFS=$'\t' read -r path hash; do
+while IFS=$'\t' read -r path hash src; do
   [ -z "${path:-}" ] && continue
   case "$path" in \#*) continue ;; esac
   [ -z "${hash:-}" ] && continue
+  if [ -z "${src:-}" ]; then
+    echo "ERROR: $MANIFEST is the old 2-column format (no source-path column)." >&2
+    echo "       line '$path' has no 3rd column. This sync version requires v2." >&2
+    echo "       Regenerate the manifest (3-column) before using this version." >&2
+    exit 1
+  fi
   if [ -z "${RECORDED[$path]+x}" ]; then ORDER+=("$path"); fi
   RECORDED["$path"]="$hash"
+  SRC["$path"]="$src"
 done < "$MANIFEST"
 
 # ─── Classify ─────────────────────────────────────────────────────────────────
@@ -160,7 +164,7 @@ if [ "$APPLY" -eq 1 ] && { [ "${#TO_UPDATE[@]}" -gt 0 ] || [ "${#TO_READD[@]}" -
   grep '^#' "$MANIFEST" > "$tmp" || true
   echo "# Re-synced: $(date +%Y-%m-%d) from $REPO_PATH" >> "$tmp"
   for path in "${ORDER[@]}"; do
-    printf '%s\t%s\n' "$path" "${RECORDED[$path]}" >> "$tmp"
+    printf '%s\t%s\t%s\n' "$path" "${RECORDED[$path]}" "${SRC[$path]}" >> "$tmp"
   done
   mv "$tmp" "$MANIFEST"
   echo "  manifest refreshed (deduped; updated hashes for synced files)."
