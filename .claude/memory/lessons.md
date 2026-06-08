@@ -9,7 +9,11 @@ patterns clarify.
 ## Verification
 - **Prose-verified != behavior-verified.** A workflow/agent change that reads
   correct in the diff can still fail in practice. Validate by routing a real
-  task through and observing, not by reading the edited file. (Stage-2 W5)
+  task through and observing, not by reading the edited file. This is
+  HUMAN-enforced, not tooling-enforced: the agents cannot reliably self-apply
+  it (W4 — the coordinator's own auto-fire instruction did not execute on its
+  own). Do not assume a change is validated because a rule says to validate it;
+  the human routes the validation task and reads the result. (Stage-2 W5)
 - **A green self-report is not verification.** Agents grading their own output
   is the recurring trap. Confirm by reading the actual artifact/diff, not the
   summary of it.
