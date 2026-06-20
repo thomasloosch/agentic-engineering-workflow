@@ -57,6 +57,7 @@ These are common standards I've deliberately excluded from v1:
 - **DRY** — already implicit in #5 and #7; treated as absolute it produces worse code
 - **100% test coverage** — coverage is a measurement, not a standard
 - **TDD** — useful sometimes, dogma other times
+  - Test-first isn't mandated — but the TDD gate (`.claude/tdd/`) verifies test-first discipline when used, and is the default for feature/logic builds.
 - **Maximum line length** — handled by your linter
 - **Specific design patterns** (Singleton, Factory, etc.) — pattern-cargo-culting is a sin
 

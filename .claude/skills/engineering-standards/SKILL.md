@@ -39,6 +39,8 @@ When this skill is loaded, the agent enforces these 12 rules. They apply unless 
 
 12. **Comments explain why, not what.** If the code needs a comment to say what it does, rewrite the code. Comments explain the reason for a choice, not the choice itself.
 
+> **TDD is not one of the 12 — test-first is not mandated.** But the TDD gate (`.claude/tdd/`) verifies test-first discipline when used, and is the default for feature/logic builds.
+
 ## How to invoke
 
 The agent invoking this skill should:
