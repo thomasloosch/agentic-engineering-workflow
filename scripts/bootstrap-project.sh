@@ -10,6 +10,8 @@
 #   - Creates .claude/ subdirectory structure in the target project
 #   - Copies agents, skills, commands, and engineering-standards from the workflow repo
 #     (preserves project-local overrides if a non-symlink file already exists at the target)
+#   - Copies the TDD gate runtime (tdd-recorder.js, tdd-detector.js) into .claude/tdd/
+#     and the rotator hook into .claude/hooks/ (test files stay in the workflow repo)
 #   - Records a content-hash manifest (.claude/.asset-manifest) of every copied file,
 #     so staleness against the workflow repo is always detectable (see Piece 2 re-sync)
 #   - Scaffolds .claude/rules/ for path-scoped rules
@@ -87,14 +89,14 @@ init_manifest() {
 
 # ─── Step 1: Create .claude/ structure ────────────────────────────────────────
 
-echo "[1/12] Creating .claude/ directory structure..."
-mkdir -p "$PROJECT_PATH/.claude/"{agents,skills,commands,memory,logs,rules}
+echo "[1/13] Creating .claude/ directory structure..."
+mkdir -p "$PROJECT_PATH/.claude/"{agents,skills,commands,memory,logs,rules,tdd,hooks}
 init_manifest
 echo "       Done."
 
 # ─── Step 2: Symlink agents ────────────────────────────────────────────────────
 
-echo "[2/12] Copying agents..."
+echo "[2/13] Copying agents..."
 agent_copied=0
 agent_overridden=0
 for agent in "$WORKFLOW_DIR/.claude/agents/"*.md; do
@@ -114,7 +116,7 @@ echo "       Copied $agent_copied agents (${agent_overridden} local overrides pr
 
 # ─── Step 3: Symlink skills ────────────────────────────────────────────────────
 
-echo "[3/12] Copying skills..."
+echo "[3/13] Copying skills..."
 skill_copied=0
 skill_overridden=0
 for skill_dir in "$WORKFLOW_DIR/.claude/skills/"*/; do
@@ -137,7 +139,7 @@ echo "       Copied $skill_copied skills (${skill_overridden} local overrides pr
 
 # ─── Step 4: Symlink commands ─────────────────────────────────────────────────
 
-echo "[4/12] Copying commands..."
+echo "[4/13] Copying commands..."
 cmd_copied=0
 cmd_overridden=0
 for cmd in "$WORKFLOW_DIR/.claude/commands/"*.md; do
@@ -157,7 +159,7 @@ echo "       Copied $cmd_copied commands (${cmd_overridden} local overrides pres
 
 # ─── Step 5: Symlink engineering-standards.md ─────────────────────────────────
 
-echo "[5/12] Copying engineering-standards.md..."
+echo "[5/13] Copying engineering-standards.md..."
 SOURCE_STANDARDS="$WORKFLOW_DIR/docs/standards/engineering-standards.md"
 TARGET_STANDARDS="$PROJECT_PATH/.claude/engineering-standards.md"
 if [[ ! -f "$SOURCE_STANDARDS" ]]; then
@@ -176,9 +178,48 @@ else
   fi
 fi
 
-# ─── Step 6: Scaffold .claude/rules/ ──────────────────────────────────────────
+# ─── Step 6: Copy TDD gate (runtime + rotator hook) ───────────────────────────
+# The gate RUNTIME (recorder + detector) is the relocatable code copied into each
+# project; the gate's TEST files stay in the workflow repo and are NOT copied. The
+# rotator hook resets the session log on SessionStart — it must be registered in
+# the project's settings.json by hand (see the wiring snippets printed at the end).
 
-echo "[6/12] Scaffolding .claude/rules/..."
+echo "[6/13] Copying TDD gate..."
+tdd_copied=0
+tdd_overridden=0
+for tdd_file in "$WORKFLOW_DIR/.claude/tdd/"*.js; do
+  [[ -e "$tdd_file" ]] || continue
+  case "$tdd_file" in *.test.js) continue ;; esac   # runtime only — tests stay in the repo
+  target="$PROJECT_PATH/.claude/tdd/$(basename "$tdd_file")"
+  if [[ -e "$target" && ! -L "$target" ]]; then
+    echo "       Preserving local override: tdd/$(basename "$tdd_file")"
+    tdd_overridden=$((tdd_overridden + 1))
+  else
+    rm -f "$target"   # clear a stale symlink from older bootstraps
+    cp "$tdd_file" "$target"
+    record_asset "$target" "tdd/$(basename "$tdd_file")" "$tdd_file"
+    tdd_copied=$((tdd_copied + 1))
+  fi
+done
+
+ROTATOR_SRC="$WORKFLOW_DIR/.claude/hooks/rotate-tdd-session-log.sh"
+ROTATOR_DST="$PROJECT_PATH/.claude/hooks/rotate-tdd-session-log.sh"
+if [[ ! -f "$ROTATOR_SRC" ]]; then
+  echo "       WARN: rotator hook not found at $ROTATOR_SRC — skipping."
+elif [[ -e "$ROTATOR_DST" && ! -L "$ROTATOR_DST" ]]; then
+  echo "       Preserving local override: hooks/rotate-tdd-session-log.sh"
+else
+  rm -f "$ROTATOR_DST"   # clear a stale symlink before copying through it
+  cp "$ROTATOR_SRC" "$ROTATOR_DST"
+  chmod +x "$ROTATOR_DST"   # hook is executed by Claude Code on SessionStart
+  record_asset "$ROTATOR_DST" "hooks/rotate-tdd-session-log.sh" "$ROTATOR_SRC"
+  tdd_copied=$((tdd_copied + 1))
+fi
+echo "       Copied $tdd_copied TDD gate file(s) (${tdd_overridden} local overrides preserved)."
+
+# ─── Step 7: Scaffold .claude/rules/ ──────────────────────────────────────────
+
+echo "[7/13] Scaffolding .claude/rules/..."
 if [[ ! -f "$PROJECT_PATH/.claude/rules/README.md" ]]; then
   cat > "$PROJECT_PATH/.claude/rules/README.md" << 'RULESEOF'
 # Path-scoped rules
@@ -232,9 +273,9 @@ else
   echo "       .claude/rules/README.md already exists — skipping."
 fi
 
-# ─── Step 7: Create CLAUDE.md from template ───────────────────────────────────
+# ─── Step 8: Create CLAUDE.md from template ───────────────────────────────────
 
-echo "[7/12] Checking CLAUDE.md..."
+echo "[8/13] Checking CLAUDE.md..."
 if [[ ! -f "$PROJECT_PATH/CLAUDE.md" ]]; then
   if [[ ! -f "$WORKFLOW_DIR/templates/CLAUDE.md.template" ]]; then
     echo "       WARN: template not found at $WORKFLOW_DIR/templates/CLAUDE.md.template — skipping."
@@ -247,9 +288,9 @@ else
   echo "       CLAUDE.md already exists — skipping (not overwriting)."
 fi
 
-# ─── Step 8: Create CLAUDE.local.md ───────────────────────────────────────────
+# ─── Step 9: Create CLAUDE.local.md ───────────────────────────────────────────
 
-echo "[8/12] Checking CLAUDE.local.md..."
+echo "[9/13] Checking CLAUDE.local.md..."
 if [[ ! -f "$PROJECT_PATH/CLAUDE.local.md" ]]; then
   cat > "$PROJECT_PATH/CLAUDE.local.md" << LOCALEOF
 # Personal Notes — $PROJECT_NAME
@@ -273,9 +314,9 @@ else
   echo "       CLAUDE.local.md already exists — skipping (not overwriting)."
 fi
 
-# ─── Step 9: Handle .gitignore ────────────────────────────────────────────────
+# ─── Step 10: Handle .gitignore ────────────────────────────────────────────────
 
-echo "[9/12] Checking .gitignore..."
+echo "[10/13] Checking .gitignore..."
 REQUIRED_IGNORES=(
   "CLAUDE.local.md"
   ".claude/logs/*"
@@ -318,9 +359,9 @@ else
   fi
 fi
 
-# ─── Step 10: Ensure .claude/logs/.gitkeep ────────────────────────────────────
+# ─── Step 11: Ensure .claude/logs/.gitkeep ────────────────────────────────────
 
-echo "[10/12] Ensuring .claude/logs/.gitkeep..."
+echo "[11/13] Ensuring .claude/logs/.gitkeep..."
 if [[ ! -f "$PROJECT_PATH/.claude/logs/.gitkeep" ]]; then
   touch "$PROJECT_PATH/.claude/logs/.gitkeep"
   echo "        Created .claude/logs/.gitkeep (preserves directory across clones)."
@@ -328,9 +369,9 @@ else
   echo "        .claude/logs/.gitkeep already exists — skipping."
 fi
 
-# ─── Step 11: Initialise current-state.md ─────────────────────────────────────
+# ─── Step 12: Initialise current-state.md ─────────────────────────────────────
 
-echo "[11/12] Checking current-state.md..."
+echo "[12/13] Checking current-state.md..."
 if [[ ! -f "$PROJECT_PATH/.claude/memory/current-state.md" ]]; then
   cat > "$PROJECT_PATH/.claude/memory/current-state.md" << STATEEOF
 # Current State — $PROJECT_NAME
@@ -358,9 +399,9 @@ else
   echo "        current-state.md already exists — skipping (not overwriting)."
 fi
 
-# ─── Step 12: PR template ─────────────────────────────────────────────────────
+# ─── Step 13: PR template ─────────────────────────────────────────────────────
 
-echo "[12/12] Checking PR template..."
+echo "[13/13] Checking PR template..."
 PR_TEMPLATE_SRC="$WORKFLOW_DIR/.github/pull_request_template.md"
 PR_TEMPLATE_DST="$PROJECT_PATH/.github/pull_request_template.md"
 if [[ -f "$PR_TEMPLATE_DST" ]]; then
@@ -377,6 +418,51 @@ fi
 
 echo ""
 echo "Bootstrap complete for: $PROJECT_NAME"
+
+# ─── Manual wiring (Option C: print, don't edit) ──────────────────────────────
+# The gate files are now in place, but two files this script must NOT rewrite
+# (package.json, .claude/settings.json) need the project owner to wire them up.
+# We print the exact snippets rather than editing, so existing scripts/hooks are
+# never clobbered. Paths assume the bootstrapped location (.claude/tdd/).
+
+echo ""
+echo "─────────────────────────────────────────────────────────────────────────────"
+echo " TDD GATE — MANUAL WIRING REQUIRED (two snippets to add by hand)"
+echo "─────────────────────────────────────────────────────────────────────────────"
+echo ""
+echo " 1) package.json — register the recorder as a --test-reporter on BOTH scripts."
+echo "    Only 'tdd' records (cross-env sets TDD_RECORD=1); plain 'test' stays quiet:"
+echo ""
+cat << 'WIRINGEOF'
+      "scripts": {
+        "test": "node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./.claude/tdd/tdd-recorder.js --test-reporter-destination=stdout",
+        "tdd": "cross-env TDD_RECORD=1 node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./.claude/tdd/tdd-recorder.js --test-reporter-destination=stdout"
+      }
+WIRINGEOF
+echo ""
+echo "    cross-env is required (Windows-safe env var):  npm install --save-dev cross-env"
+echo ""
+echo " 2) .claude/settings.json — register the rotator on SessionStart (merge if the"
+echo "    file already exists; it resets .claude/logs/tdd-session.log each session):"
+echo ""
+cat << 'WIRINGEOF'
+      {
+        "hooks": {
+          "SessionStart": [
+            {
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/rotate-tdd-session-log.sh"
+                }
+              ]
+            }
+          ]
+        }
+      }
+WIRINGEOF
+echo "─────────────────────────────────────────────────────────────────────────────"
+
 echo ""
 echo "Next steps:"
 echo "  1. Customise $PROJECT_PATH/CLAUDE.md for this project"
