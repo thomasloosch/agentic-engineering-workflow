@@ -140,3 +140,12 @@ Dependencies first, so each skill's edges resolve as it lands. (`tdd` already do
 ## 8. Validation
 
 **Stage 2.5 — the jobs-radar dashboard — is the end-to-end test of this adopted suite.** A real feature, taken from fuzzy intent through `grilling` → `to-prd` → `to-issues` → per-issue `implement`+`tdd`, with `improve-arch` available as the architecture loop, proves the pipeline holds together with no dangling edges and no resurrected coordinator. The deferred decisions in §6 resolve against what Stage 2.5 actually exercises.
+
+---
+
+## 9. Setup placement & run notes
+
+`setup` is **placed** (de-branded) at [.claude/skills/setup-engineering-skills/](../.claude/skills/setup-engineering-skills/) so the bootstrap step-3 glob propagates it into target repos. Placement ≠ running — `setup` runs **per-target-repo** (jobs-radar first, for Stage 2.5). Two things to remember at run time:
+
+- **Run-time prerequisite — create the GitHub labels.** After running `setup` in a target repo, create the five triage labels via `gh label create` (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). `setup` writes the role→label *mapping* (`docs/agents/triage-labels.md`) but **does not create the labels themselves**; the chain skills apply them with `gh issue edit --add-label`, which **errors on a missing label**. The mapping without the labels is a silent trap.
+- **Lockstep rename.** The placed skill is `setup-engineering-skills`. The pointer strings inside `to-prd`, `to-issues`, and `triage` still say `run /setup-matt-pocock-skills` — when those three are adopted, their pointers must be updated to `run /setup-engineering-skills` in the same step. They were intentionally left untouched here because those skills aren't adopted yet (see §7).
