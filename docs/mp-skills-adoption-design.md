@@ -1,11 +1,11 @@
 # mp-skills Adoption — Reconciliation Design
 
 **Date:** 2026-06-21
-**Status:** Design approved, adoption not yet executed (happens next session, against this doc).
+**Status:** **Adopted** — all 8 skills placed and pushed to `main` (2026-06-21 → 06-23); per-skill commits in §7. Two reconciliations remain open (§5 bullets 2–3): the `spec-discipline` → `to-prd` merge and the agent-dispatch retirement. Now a record of the decisions, not a forward plan.
 **Source screened:** `mattpocock/skills` @ `6eeb81b` (2026-06-18), local mirror at `~/scratch/mp-skills` fast-forwarded to match.
 **Validation target:** Stage 2.5 — the jobs-radar dashboard — is the end-to-end test of the adopted suite.
 
-This is a **design** doc: the decisions for adopting Matt Pocock's engineering-skills suite into this workflow. It is not the adoption itself. It records *what* we adopt, *why that exact set*, *how it reconciles with how this workflow already works*, and *in what order*. `tdd` is already adopted (the thin fork at [.claude/skills/tdd/](../.claude/skills/tdd/SKILL.md)); everything here builds the closure around it.
+This is the **design** doc for adopting Matt Pocock's engineering-skills suite into this workflow — *what* we adopted, *why that exact set*, *how it reconciles with how this workflow already works*, and *in what order*. The adoption it specifies has since been executed; it now doubles as the record (per-skill commits in §7). `tdd` was already adopted (the thin fork at [.claude/skills/tdd/](../.claude/skills/tdd/SKILL.md)); everything here builds the closure around it.
 
 ---
 
@@ -122,16 +122,16 @@ Three places where the suite overlaps assets we already have. Each needs a pick,
 
 ## 7. Adoption order
 
-Dependencies first, so each skill's edges resolve as it lands. (`tdd` already done.)
+Dependencies first, so each skill's edges resolved as it landed. **All steps below are done** — each annotated with its commit. (`tdd` previously adopted, `4a25429`.)
 
-1. **`setup`** — bootstrap the config substrate (GitHub Issues tracker, label vocabulary, single-context domain layout). *De-brand:* rename the skill itself (drop `-matt-pocock-skills`); strip the `# Setup Matt Pocock's Skills` heading; rename the `triage-labels.md` table column header `Label in mattpocock/skills` → canonical-role.
-2. **`domain-modeling`** — the glossary/ADR writer. *De-brand:* none in body; keep `CONTEXT-FORMAT.md` + `ADR-FORMAT.md` companions.
-3. **`codebase-design`** — the architecture vocabulary. *De-brand:* none (brand-clean).
-4. **`grilling`** — the interview engine; the `brainstorming` de-dup was resolved here (retired in `4a3efd5`). *De-brand:* none (brand-clean).
-5. **`to-prd`** — conversation → PRD; resolve the `spec-writer` de-dup here. *De-brand:* update the `run /setup-matt-pocock-skills if not` pointer string to the renamed setup skill.
-6. **`to-issues`** — PRD → slices. *De-brand:* same setup-pointer string.
-7. **`triage`** — issue/PR lifecycle. *De-brand:* same setup-pointer string; keep the `AGENT-BRIEF.md` companion.
-8. **`improve-codebase-architecture`** — the parallel architecture entry point. *De-brand:* none in body (references `/codebase-design`, `/grilling`, `/domain-modeling` by slash-name); keep the `HTML-REPORT.md` companion.
+1. **`setup`** — bootstrap the config substrate (GitHub Issues tracker, label vocabulary, single-context domain layout). *De-brand:* renamed the skill itself (dropped `-matt-pocock-skills`); stripped the `# Setup Matt Pocock's Skills` heading; renamed the `triage-labels.md` table column header `Label in mattpocock/skills` → `Canonical role`. **Adopted `68ec242`.**
+2. **`domain-modeling`** — the glossary/ADR writer. *De-brand:* none in body; kept `CONTEXT-FORMAT.md` + `ADR-FORMAT.md` companions. **Adopted `261a020`.**
+3. **`codebase-design`** — the architecture vocabulary. *De-brand:* none (brand-clean). **Adopted `208561d`.**
+4. **`grilling`** — the interview engine; the `brainstorming` de-dup was resolved here (retired in `4a3efd5`). *De-brand:* none (brand-clean). **Adopted `071d19d`.**
+5. **`to-prd`** — conversation → PRD. *De-brand:* updated the `run /setup-…` pointer string to `/setup-engineering-skills`. **Adopted `952c836`.** (The `spec-writer` / `spec-discipline` reconciliation flagged here is still open — §5 bullet 2.)
+6. **`to-issues`** — PRD → slices. *De-brand:* same setup-pointer string. **Adopted `37b14b2`.**
+7. **`triage`** — issue/PR lifecycle. *De-brand:* same setup-pointer string; kept the `AGENT-BRIEF.md` **and `OUT-OF-SCOPE.md`** companions. **Adopted `af68d05`.**
+8. **`improve-codebase-architecture`** — the parallel architecture entry point. *De-brand:* none in body (references `/codebase-design`, `/grilling`, `/domain-modeling` by slash-name); kept the `HTML-REPORT.md` companion. **Adopted `628c133`.**
 
 **De-brand summary:** the suite is **mostly brand-clean inside skill bodies.** The branding to remove is concentrated in (a) the `setup` skill's name and heading, and (b) the `run /setup-matt-pocock-skills` **pointer strings** in `to-prd` / `to-issues` / `triage`. That's the whole surface.
 
