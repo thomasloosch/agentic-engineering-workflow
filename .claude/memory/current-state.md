@@ -17,9 +17,13 @@ individual project repos. Separate from product work (Sovary); used to build it.
   decision (it still backs /start-session + /defer).
 - researcher agent retired (this commit); /research is now a thin router to
   /deep-research + inline web tools (mp-skills design §5 Part 2).
-- Remaining sub-agents (.claude/agents/): coordinator (held), code-review,
-  security-audit, i18n-auditor, brand-guardian, performance-auditor, qa-testing,
-  git-operator, session-close — disposition pending (mp-skills design §5 Parts 2-4)
+- code-review agent retired (this commit); pre-merge review now via /code-review
+  (always) + /security-review (security-touching diffs) built-in skills. The
+  patterns.md/lessons.md self-learning loop persists (Part 4) — it just stops
+  gaining code-review entries (mp-skills design §5 Part 2).
+- Remaining sub-agents (.claude/agents/): coordinator (held), security-audit,
+  i18n-auditor, brand-guardian, performance-auditor, qa-testing, git-operator,
+  session-close — disposition pending (mp-skills design §5 Parts 2-4)
 - 6 enforcement hooks (dormant in MINGW desktop, active in terminal claude CLI)
 - Bootstrap: copy-based with content-hash manifest (.asset-manifest)
 - Path variables reconciled this session:
