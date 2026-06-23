@@ -36,13 +36,13 @@ A structured brief with:
 - Before picking a library or tool ("which RSS parsing library is actively maintained in 2026?")
 - Before a legal or compliance decision ("does GDPR Art. 17 apply to our audit logs?")
 - Before assuming a dependency is safe ("any known CVEs for this package?")
-- When a spec needs external knowledge the Spec Writer doesn't have
+- When planning needs external knowledge you don't already have
 - Any time you're about to make a decision based on something you're not certain about
 
 ## When NOT to use /research
 
 - To look up your own codebase — use Grep or Read directly
-- To generate opinions about your architecture — that's the Spec Writer's job
+- To generate opinions about your architecture — that's a design decision, not a research lookup
 - To replace reading official documentation you can access yourself in 2 minutes
 - For tasks Claude already knows well from training (basic syntax, well-established patterns)
 

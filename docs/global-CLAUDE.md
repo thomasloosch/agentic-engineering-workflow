@@ -29,11 +29,7 @@ Apply when: bugs aren't yielding to the obvious fix, designs require an architec
 
 ## Workflow discipline
 
-For non-trivial work — anything touching 3+ files, modifying production code, requiring a spec, or affecting deployments — route through the agent system. Trivial questions and one-off snippets can be answered directly.
-
-The agent system lives in `.claude/agents/` (auto-discovered). The coordinator (`/start-session`) dispatches the right specialist. Agents enforce explicit scope boundaries; respect them rather than offering shortcuts.
-
-Don't bypass an agent's refusal with a direct answer. If the coordinator refuses to write code, that's the design — route to the implementation engineer. If the spec writer refuses to implement, route forward. The boundaries exist because the workflow only works if used consistently.
+For non-trivial work — anything touching 3+ files, modifying production code, requiring a spec, or affecting deployments — route through the project's defined workflow (see the project's CLAUDE.md). Where the engineering-skills pipeline is adopted, that means `/grilling` → `/to-prd` → `/to-issues` → building each issue with `/tdd`, plus `/improve-codebase-architecture` as the parallel architecture entry point; each phase transition is a human-triggered judgment gate. Trivial questions and one-off snippets can be answered directly.
 
 For repeated mistakes Claude makes despite this file, escalate to the project's CLAUDE.md or to a `.claude/rules/` rule file rather than this global one.
 

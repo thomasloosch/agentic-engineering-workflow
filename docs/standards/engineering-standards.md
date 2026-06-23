@@ -13,7 +13,7 @@ The 12 rules every project in this workflow inherits by default. Each rule has a
 Don't say "should work" — say "ran it, output was X, matched expectation Y." Verification is the final step of every task, not an optional polish.
 
 ### 3. Plan before non-trivial code
-Anything touching ≥3 files gets a written plan first. The spec-writer agent owns this. Plans surface ambiguity cheaply; code surfaces it expensively.
+Anything touching ≥3 files gets a written plan first — the `/to-prd` skill produces it (grilling → PRD → issues). Plans surface ambiguity cheaply; code surfaces it expensively.
 
 ### 4. Fail closed in production, fail loud in dev
 Production paths in plan-gating, authorisation, and any privilege check return 503 (or equivalent) on any error. Development paths throw and crash — silent failure is worse than visible failure.

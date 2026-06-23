@@ -85,9 +85,9 @@ When agents return:
 
 ## When this skill triggers
 
-- Implementation Engineer faces a spec with 4+ independent files
-- Code Reviewer finds 3+ unrelated issues in different subsystems
+- A task spans 4+ independent files across distinct concerns
+- A review surfaces 3+ unrelated issues in different subsystems
 - Multiple test files failing with distinct root causes
 - User explicitly says "do these in parallel"
 
-The Coordinator should consider this skill when dispatching the Implementation Engineer for a spec that has multiple distinct concerns.
+Reach for this skill when the work splits into independent domains that can run concurrently.
