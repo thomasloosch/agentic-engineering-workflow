@@ -48,8 +48,8 @@ A list of implementation decisions that were made. This can include:
 - The interfaces of those modules that will be modified
 - Technical clarifications from the developer
 - Architectural decisions
-- Schema changes
-- API contracts
+- Data model — tables/columns/indices or data-shape changes, plus any migration the change implies (state this explicitly whenever the feature touches storage)
+- API surface — the routes/methods and request/response shapes added or changed
 - Specific interactions
 
 Do NOT include specific file paths or code snippets. They may end up being outdated very quickly.
@@ -63,6 +63,10 @@ A list of testing decisions that were made. Include:
 - A description of what makes a good test (only test external behavior, not implementation details)
 - Which modules will be tested
 - Prior art for the tests (i.e. similar types of tests in the codebase)
+
+## Failure Modes
+
+The significant ways the feature can fail, each paired with how it is detected and how the system responds. Cover the failures that matter — external dependencies that can be down, inputs that can arrive malformed, states that can race — not every theoretical error. If the feature has no significant failure surface, write "None significant" rather than padding. Each failure mode noted here is verified at the slice level via acceptance criteria.
 
 ## Out of Scope
 

@@ -41,6 +41,12 @@ When this skill is loaded, the agent enforces these 12 rules. They apply unless 
 
 > **TDD is not one of the 12 — test-first is not mandated.** But the TDD gate (`.claude/tdd/`) verifies test-first discipline when used, and is the default for feature/logic builds.
 
+## Writing discipline (prose artifacts)
+
+Beyond the 12 code rules, one discipline governs the prose artifacts the workflow produces — PRDs (`to-prd`), issues (`to-issues`), and agent briefs (`triage`):
+
+- **No vague terms.** Banned: "seamlessly integrates," "robustly handles," "intuitive UX," and their kin — they read as finished but specify nothing. Replace each with a concrete, testable statement: what the thing actually does, in language an acceptance criterion could check. If you can't make it concrete, that's an unresolved question to surface, not a phrase to ship.
+
 ## How to invoke
 
 The agent invoking this skill should:
