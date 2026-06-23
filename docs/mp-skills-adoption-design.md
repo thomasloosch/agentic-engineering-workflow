@@ -104,7 +104,7 @@ Per-repo config lives in `docs/agents/{issue-tracker,triage-labels,domain}.md`, 
 
 Three places where the suite overlaps assets we already have. Each needs a pick, not coexistence.
 
-- **`grilling` vs `brainstorming`** (existing skill). **`grilling` wins / absorbs.** They occupy the same niche (turn fuzzy intent into a sharp plan through dialogue), and `grilling` is the engine the rest of the suite already routes to. Action: adopt `grilling`; fold any unique `brainstorming` guidance into it and retire `brainstorming`, or alias it. Do not run both interview postures.
+- **`grilling` vs `brainstorming`** (existing skill) — **resolved.** `grilling` adopted (`071d19d`); `brainstorming` retired (`4a3efd5`), no alias. They occupied the same niche (turn fuzzy intent into a sharp plan through dialogue), and `grilling` is the engine the rest of the suite routes to — keeping both would have meant two model-invoked interview skills with overlapping triggers (auto-fire nondeterminism). `brainstorming`'s one unique asset (its structured problem/scope summary) is now served by `to-prd`; its spec-writer coupling pointed at a retiring agent.
 - **`to-prd` vs `spec-discipline` / `spec-writer`** (existing skill + agent). **Reconcile toward `to-prd`.** `to-prd` is the un-gated, synthesize-from-conversation PRD writer; `spec-writer` was the gated-agent equivalent. With the agent layer retiring (below), `to-prd` + the §4.2 issue-approval gate is the replacement. The `spec-discipline` 10-section rigor worth keeping should migrate into the PRD template, not survive as a parallel path.
 - **Agent-dispatch retired.** The slash pipeline replaces the orchestration trio. **Cleanup (flagged, executed next session):**
   - Update [current-state.md](../.claude/memory/current-state.md) to record the model switch (currently it still describes "11 sub-agents" and "coordinator wiring (W4)" as live).
@@ -127,7 +127,7 @@ Dependencies first, so each skill's edges resolve as it lands. (`tdd` already do
 1. **`setup`** — bootstrap the config substrate (GitHub Issues tracker, label vocabulary, single-context domain layout). *De-brand:* rename the skill itself (drop `-matt-pocock-skills`); strip the `# Setup Matt Pocock's Skills` heading; rename the `triage-labels.md` table column header `Label in mattpocock/skills` → canonical-role.
 2. **`domain-modeling`** — the glossary/ADR writer. *De-brand:* none in body; keep `CONTEXT-FORMAT.md` + `ADR-FORMAT.md` companions.
 3. **`codebase-design`** — the architecture vocabulary. *De-brand:* none (brand-clean).
-4. **`grilling`** — the interview engine; resolve the `brainstorming` de-dup at this step. *De-brand:* none (brand-clean).
+4. **`grilling`** — the interview engine; the `brainstorming` de-dup was resolved here (retired in `4a3efd5`). *De-brand:* none (brand-clean).
 5. **`to-prd`** — conversation → PRD; resolve the `spec-writer` de-dup here. *De-brand:* update the `run /setup-matt-pocock-skills if not` pointer string to the renamed setup skill.
 6. **`to-issues`** — PRD → slices. *De-brand:* same setup-pointer string.
 7. **`triage`** — issue/PR lifecycle. *De-brand:* same setup-pointer string; keep the `AGENT-BRIEF.md` companion.
