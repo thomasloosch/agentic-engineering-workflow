@@ -15,10 +15,11 @@ individual project repos. Separate from product work (Sovary); used to build it.
   improve-codebase-architecture). spec-writer + implementation-engineer agents
   retired (this commit); coordinator HELD pending the Part-4 session-ritual
   decision (it still backs /start-session + /defer).
+- researcher agent retired (this commit); /research is now a thin router to
+  /deep-research + inline web tools (mp-skills design §5 Part 2).
 - Remaining sub-agents (.claude/agents/): coordinator (held), code-review,
   security-audit, i18n-auditor, brand-guardian, performance-auditor, qa-testing,
-  git-operator, researcher, session-close — disposition pending (mp-skills
-  design §5 Parts 2-4)
+  git-operator, session-close — disposition pending (mp-skills design §5 Parts 2-4)
 - 6 enforcement hooks (dormant in MINGW desktop, active in terminal claude CLI)
 - Bootstrap: copy-based with content-hash manifest (.asset-manifest)
 - Path variables reconciled this session:
