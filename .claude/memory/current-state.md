@@ -22,13 +22,14 @@ individual project repos. Separate from product work (Sovary); used to build it.
   /security-review (security-touching diffs) built-in skills (mp-skills design
   §5 Part 2).
 - security-audit agent retired; strategic per-branch security review now via
-  /security-review (mp-skills design §5 Part 2). FOLLOW-UP (not lost):
-  /security-review covers pending-change review but NOT full-history secret
-  scanning or npm audit. Home for those is a push/PR-triggered gitleaks CI
-  workflow (runtime-independent) — NOT a local pre-push hook (dormant in the
-  MINGW desktop runtime, Finding 4 — false confidence). npm audit is largely
-  covered by dependabot where configured (this repo has it). jobs-radar has no
-  CI yet; the secret-scan folds into its CI setup.
+  /security-review (mp-skills design §5 Part 2). Its full-history secret-scan
+  (which /security-review does NOT cover — that's pending-change only) now lives
+  in CI: .github/workflows/secret-scan.yml (gitleaks, push + PR + workflow_dispatch,
+  fetch-depth 0). BUILT non-blocking (continue-on-error) pending the baseline run +
+  .gitleaks.toml allowlist triage — flip to blocking once the baseline is clean.
+  Secret-scan ONLY: no npm audit here (no package.json; dependabot covers only the
+  Actions versions). jobs-radar's secret-scan still pending — it has no CI yet;
+  folds into its CI setup (the .github/workflows/ci.yml.template).
 - git-operator agent retired; git ops are inline now — conventions live in
   engineering-standards Rule 9 (conventional commits) + global CLAUDE (explicit
   staging), force-push guarded by the block-force-push-to-main hook. Its

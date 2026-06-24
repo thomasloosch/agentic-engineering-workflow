@@ -1,0 +1,20 @@
+# gitleaks config for the secret-scan workflow (.github/workflows/secret-scan.yml).
+# Inherits gitleaks' built-in default rules, then applies the repo allowlist below.
+# Docs: https://github.com/gitleaks/gitleaks#configuration
+
+[extend]
+useDefault = true
+
+# Allowlist — the home for confirmed doc/example false-positives.
+# Populate AFTER the baseline run (manual: Actions -> Secret scan -> Run workflow):
+# triage each hit, and add only confirmed non-secrets here. A real secret found in
+# history must be ROTATED, not allowlisted (this is a public repo).
+[allowlist]
+description = "Workflow-repo allowlist — doc/example false-positives (empty until baseline triage)"
+# paths = [
+#   '''docs/.*\.md$''',              # e.g. illustrative tokens in documentation
+#   '''docs/metrics/.*\.md$''',      # e.g. example keys quoted in retros
+# ]
+# regexes = [
+#   '''EXAMPLE_PLACEHOLDER_TOKEN''', # e.g. a known placeholder string
+# ]
