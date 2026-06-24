@@ -21,17 +21,24 @@ individual project repos. Separate from product work (Sovary); used to build it.
   /security-review (security-touching diffs) built-in skills. The
   patterns.md/lessons.md self-learning loop persists (Part 4) — it just stops
   gaining code-review entries (mp-skills design §5 Part 2).
-- security-audit agent retired (this commit); strategic per-branch security
-  review now via /security-review (mp-skills design §5 Part 2). FOLLOW-UP (not
-  lost): /security-review covers pending-change review but NOT full-history
-  secret scanning or npm audit. Home for those is a push/PR-triggered gitleaks
-  CI workflow (runtime-independent) — NOT a local pre-push hook (dormant in the
+- security-audit agent retired; strategic per-branch security review now via
+  /security-review (mp-skills design §5 Part 2). FOLLOW-UP (not lost):
+  /security-review covers pending-change review but NOT full-history secret
+  scanning or npm audit. Home for those is a push/PR-triggered gitleaks CI
+  workflow (runtime-independent) — NOT a local pre-push hook (dormant in the
   MINGW desktop runtime, Finding 4 — false confidence). npm audit is largely
   covered by dependabot where configured (this repo has it). jobs-radar has no
   CI yet; the secret-scan folds into its CI setup.
+- git-operator agent retired (this commit); git ops are inline now — conventions
+  live in engineering-standards Rule 9 (conventional commits) + global CLAUDE
+  (explicit staging), force-push guarded by the block-force-push-to-main hook.
+  Its merge-gating (no-direct-to-main) was contrary to locked-decision #7 and is
+  intentionally gone (mp-skills design §5 Part 2-adjacent). KNOWN CONFLICT: the
+  same no-direct-to-main rule still lives in engineering-standards Rule 10 (both
+  copies) — unresolved against #7, fix separately.
 - Remaining sub-agents (.claude/agents/): coordinator (held), i18n-auditor,
-  brand-guardian, performance-auditor, qa-testing, git-operator, session-close
-  — disposition pending (mp-skills design §5 Parts 2-4)
+  brand-guardian, performance-auditor, qa-testing, session-close — disposition
+  pending (mp-skills design §5 Parts 2-4)
 - 6 enforcement hooks (dormant in MINGW desktop, active in terminal claude CLI)
 - Bootstrap: copy-based with content-hash manifest (.asset-manifest)
 - Path variables reconciled this session:
