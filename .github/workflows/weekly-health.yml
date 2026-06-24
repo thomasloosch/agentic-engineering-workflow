@@ -28,6 +28,7 @@ jobs:
           echo "=== Agent frontmatter check ==="
           all_ok=true
           for f in .claude/agents/*.md; do
+            [ -e "$f" ] || continue   # empty/absent agents dir (agent layer retired) — nothing to check, clean pass
             first_line=$(head -1 "$f")
             if [ "$first_line" != "---" ]; then
               echo "FAIL: $f — first line is not ---"
@@ -45,6 +46,7 @@ jobs:
           echo "=== Scope boundaries check ==="
           missing=0
           for f in .claude/agents/*.md; do
+            [ -e "$f" ] || continue   # empty/absent agents dir — nothing to check
             if ! grep -q "SCOPE BOUNDARIES" "$f"; then
               echo "MISSING: $(basename $f)"
               missing=$((missing + 1))

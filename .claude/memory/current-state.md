@@ -58,9 +58,6 @@ individual project repos. Separate from product work (Sovary); used to build it.
   (Sovary/familienkalender) needs it. brand-guardian / performance-auditor /
   qa-testing (visual-brand, bundle/Lighthouse, Playwright live-testing) are web-app
   gates, N/A to CLI/cron — revisit as skills-or-hooks when web work needs them.
-- FOLLOW-UP: .github/workflows/weekly-health.yml loops `for f in .claude/agents/*.md`
-  (frontmatter + scope-boundary checks) — now an empty dir, so they fail CI; make
-  them empty-safe (nullglob/guard) next.
 - 6 enforcement hooks (dormant in MINGW desktop, active in terminal claude CLI)
 - Bootstrap: copy-based with content-hash manifest (.asset-manifest)
 - Path variables reconciled this session:
