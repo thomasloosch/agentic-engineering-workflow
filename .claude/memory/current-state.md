@@ -37,10 +37,11 @@ individual project repos. Separate from product work (Sovary); used to build it.
 - Rule-10/#7 conflict RESOLVED (this commit): decision #7 recorded as
   docs/adr/0001-solo-direct-to-main.md; Rule 10 reframed project-conditional in
   BOTH copies (skill + doc), override-example dropped, warn-direct-commit hook
-  message updated. FOLLOW-UPS (not done here): (a) the broader SKILL-vs-doc
-  engineering-standards drift beyond Rule 10 (Rule 3, Rule 9, Writing-discipline
-  section) — a single-source-of-truth task; (b) the GitHub PR-ruleset — DONE this
-  session (PR requirement removed server-side; force-push/deletion guards kept).
+  message updated. FOLLOW-UPS: (a) SKILL-vs-doc engineering-standards drift —
+  DONE this session (Rule 3 /to-prd + Writing-discipline synced, Rule 9 trimmed,
+  What's-NOT-a-rule added to the SKILL; title-drift guard added to weekly-health
+  CI so it can't silently recur). (b) the GitHub PR-ruleset — DONE this session
+  (PR requirement removed server-side; force-push/deletion guards kept).
 - AGENT LAYER FULLY RETIRED (Part 4, this commit): coordinator + session-close
   retired, and the 4 web-app auditors (i18n-auditor, brand-guardian,
   performance-auditor, qa-testing) folded in. .claude/agents/ is now EMPTY. The
@@ -61,6 +62,12 @@ individual project repos. Separate from product work (Sovary); used to build it.
 - 6 enforcement hooks (dormant in MINGW desktop, active in terminal claude CLI) —
   recorded as ADR-0002 (hooks advisory-only in the Desktop runtime; the constraint
   the warn-direct-commit hook + secret-scan-belongs-in-CI decisions lean on).
+- FLAGGED DECISION (not taken here): the workflow repo has no root CLAUDE.md, and
+  we're keeping it that way for now. The no-root decision was about not placing the
+  GLOBAL CLAUDE.md at root; a dedicated PROJECT CLAUDE.md is a separate question. A
+  root CLAUDE.md would enable Option B (thin engineering-standards SKILL via
+  @-import of the doc — true SSOT) AND fix the Rule-10-override-home gap — its own
+  repo-architecture decision, deliberately deferred.
 - Bootstrap: copy-based with content-hash manifest (.asset-manifest)
 - Path variables reconciled this session:
   - MEMORY_DIR -> project-relative .claude/memory/ (32 sites + session-close:396

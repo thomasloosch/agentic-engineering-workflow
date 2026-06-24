@@ -13,7 +13,7 @@ When this skill is loaded, the agent enforces these 12 rules. They apply unless 
 
 2. **Verify before declaring done** — "ran it, output was X, matched expectation Y" — not "should work." Verification is the final step of every task, not optional polish.
 
-3. **Plan before non-trivial code** — anything touching 3 or more files gets a written plan first. Plans surface ambiguity cheaply; code surfaces it expensively.
+3. **Plan before non-trivial code** — anything touching 3 or more files gets a written plan first — the `/to-prd` skill produces it (grilling → PRD → issues). Plans surface ambiguity cheaply; code surfaces it expensively.
 
 4. **Fail closed in production, fail loud in dev** — production paths in plan-gating, authorisation, any privilege check return 503 (or equivalent) on error. Development paths throw and crash — silent failure is worse than visible failure.
 
@@ -40,6 +40,16 @@ When this skill is loaded, the agent enforces these 12 rules. They apply unless 
 12. **Comments explain why, not what.** If the code needs a comment to say what it does, rewrite the code. Comments explain the reason for a choice, not the choice itself.
 
 > **TDD is not one of the 12 — test-first is not mandated.** But the TDD gate (`.claude/tdd/`) verifies test-first discipline when used, and is the default for feature/logic builds.
+
+## What's NOT a rule
+
+Common standards deliberately excluded from the 12 — don't flag these as violations:
+
+- **DRY** — already implicit in #5 and #7; treated as absolute it produces worse code
+- **100% test coverage** — coverage is a measurement, not a standard
+- **TDD** — useful sometimes, dogma other times (see the TDD-gate note above)
+- **Maximum line length** — handled by your linter
+- **Specific design patterns** (Singleton, Factory, etc.) — pattern-cargo-culting is a sin
 
 ## Writing discipline (prose artifacts)
 

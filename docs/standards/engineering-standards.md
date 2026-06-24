@@ -35,7 +35,7 @@ One function/module/component does one thing. "And" in the name is a signal to s
 ## Workflow
 
 ### 9. Conventional Commits
-Format: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`. Automated changelogs depend on this. Bonus: signals professionalism in any code review.
+Format: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`. Automated changelogs depend on this.
 
 ### 10. No direct commits to main (project-conditional)
 For projects with collaborators, every change goes via feature branch + PR: the PR is the pause and the second reader. Solo projects may commit directly to main (ADR-0001) — there's no second reviewer to gate on; the pause comes from self-review and the warn-direct-commit hook.
@@ -49,6 +49,12 @@ If the project ships in two languages, every user-facing string exists in both a
 If the code needs a comment to say what it does, rewrite the code. Comments explain the reason for a choice, not the choice itself.
 
 ---
+
+## Writing discipline (prose artifacts)
+
+Beyond the 12 code rules, one discipline governs the prose artifacts the workflow produces — PRDs (`to-prd`), issues (`to-issues`), and agent briefs (`triage`):
+
+- **No vague terms.** Banned: "seamlessly integrates," "robustly handles," "intuitive UX," and their kin — they read as finished but specify nothing. Replace each with a concrete, testable statement: what the thing actually does, in language an acceptance criterion could check. If you can't make it concrete, that's an unresolved question to surface, not a phrase to ship.
 
 ## What's NOT a rule
 

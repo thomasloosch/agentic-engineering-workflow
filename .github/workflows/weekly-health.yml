@@ -70,3 +70,24 @@ jobs:
           else
             echo "OK: No hardcoded Windows paths found"
           fi
+
+      - name: Check engineering-standards rule-title parity (SKILL vs doc)
+        run: |
+          echo "=== engineering-standards SSOT title check ==="
+          skill=.claude/skills/engineering-standards/SKILL.md
+          doc=docs/standards/engineering-standards.md
+          if [ ! -f "$skill" ] || [ ! -f "$doc" ]; then
+            echo "ERROR: a standards file is missing ($skill / $doc)"; exit 1
+          fi
+          # Rule TITLES only — tolerates the intentional wording/format/wrapper drift
+          # between the two consumers, but catches a rule added/renamed/dropped in one copy.
+          # SKILL "N. **Title** — ..."  /  doc "### N. Title"; strip a trailing period.
+          sed -nE 's/^[0-9]+\. \*\*([^*]+)\*\*.*/\1/p' "$skill" | sed -E 's/[. ]+$//' | sort > /tmp/skill_titles
+          sed -nE 's/^### [0-9]+\. (.+)$/\1/p'        "$doc"   | sed -E 's/[. ]+$//' | sort > /tmp/doc_titles
+          if diff -u /tmp/skill_titles /tmp/doc_titles; then
+            echo "OK: $(wc -l < /tmp/skill_titles) rule titles match between SKILL and doc"
+          else
+            echo "ERROR: engineering-standards rule TITLES diverge between the two copies (see diff above)."
+            echo "Wording/format may differ by consumer (allowed); the rule SET must not. Sync the drifted title."
+            exit 1
+          fi
