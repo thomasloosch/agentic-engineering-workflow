@@ -17,13 +17,21 @@ individual project repos. Separate from product work (Sovary); used to build it.
   decision (it still backs /start-session + /defer).
 - researcher agent retired (this commit); /research is now a thin router to
   /deep-research + inline web tools (mp-skills design §5 Part 2).
-- code-review agent retired (this commit); pre-merge review now via /code-review
-  (always) + /security-review (security-touching diffs) built-in skills. The
+- code-review agent retired; pre-merge review now via /code-review (always) +
+  /security-review (security-touching diffs) built-in skills. The
   patterns.md/lessons.md self-learning loop persists (Part 4) — it just stops
   gaining code-review entries (mp-skills design §5 Part 2).
-- Remaining sub-agents (.claude/agents/): coordinator (held), security-audit,
-  i18n-auditor, brand-guardian, performance-auditor, qa-testing, git-operator,
-  session-close — disposition pending (mp-skills design §5 Parts 2-4)
+- security-audit agent retired (this commit); strategic per-branch security
+  review now via /security-review (mp-skills design §5 Part 2). FOLLOW-UP (not
+  lost): /security-review covers pending-change review but NOT full-history
+  secret scanning or npm audit. Home for those is a push/PR-triggered gitleaks
+  CI workflow (runtime-independent) — NOT a local pre-push hook (dormant in the
+  MINGW desktop runtime, Finding 4 — false confidence). npm audit is largely
+  covered by dependabot where configured (this repo has it). jobs-radar has no
+  CI yet; the secret-scan folds into its CI setup.
+- Remaining sub-agents (.claude/agents/): coordinator (held), i18n-auditor,
+  brand-guardian, performance-auditor, qa-testing, git-operator, session-close
+  — disposition pending (mp-skills design §5 Parts 2-4)
 - 6 enforcement hooks (dormant in MINGW desktop, active in terminal claude CLI)
 - Bootstrap: copy-based with content-hash manifest (.asset-manifest)
 - Path variables reconciled this session:
