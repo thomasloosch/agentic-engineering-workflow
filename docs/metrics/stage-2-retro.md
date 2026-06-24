@@ -117,7 +117,7 @@ Jobs Radar will be **developed** under Git Bash / Windows Node / UNC but **deplo
 - **#4** — `settings.local.json` (repo, gitignored) vs deployed `settings.json` (live, with hooks + permissions) are different files by purpose, not drifted copies. Document the convention; low priority.
 - **#5** — `.backup-*` files in `scripts/` and `templates/`. The `.gitignore` appears to match `*.backup*` (the migration backup didn't show as untracked), so these are likely local-only, not committed cruft. Confirm with `git ls-files | grep backup`; downgrade to optional tidy if untracked.
 - **#8 / sync routine** — The `chore: sync` routine that previously copied workflow assets did not verify content (the repo coordinator went stale despite a sync commit existing). Build a sync script that diffs and refuses on conflict rather than overwriting by timestamp.
-- **#11** — GitHub branch protection requires PRs on `main`; this contradicts locked-decision #7 (direct-push solo workflow). Thomas confirmed the PR rule was an unintended default. **Action (Thomas, settings):** relax or remove the "require PR" ruleset so pushes stop generating bypass warnings.
+- **#11 — RESOLVED (this session).** GitHub branch protection required PRs on `main`, contradicting locked-decision #7 (direct-push solo workflow) — an unintended default. Both halves fixed: repo-side, Rule 10 reframed project-conditional + decision #7 recorded as ADR-0001; server-side, the `required_pull_request_reviews` requirement removed (force-push/deletion guards retained). Pushes no longer generate bypass warnings.
 - **Piece 2** — `sync-project-assets` re-sync command (see Finding 2), deferred to first felt drift.
 
 ---

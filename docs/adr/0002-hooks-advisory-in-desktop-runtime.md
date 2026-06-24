@@ -1,0 +1,3 @@
+# Enforcement hooks are advisory-only in the Desktop runtime
+
+The enforcement hooks are bash `PreToolUse` scripts that assume Linux `$HOME/.claude/…` paths; in the Claude Code Desktop app's MINGW runtime `$HOME` is the Windows user home and those assumptions don't hold, so the hooks fire correctly only in the terminal CLI. Git-discipline and enforcement are therefore **advisory-only (manual)** in the Desktop runtime — the layer where work actually happens. Downstream consequence: this is why the `warn-direct-commit` hook is advisory, and why deterministic checks (e.g. a git-history secret-scan) belong in CI, not local pre-push hooks (a local hook would be dormant here — false confidence).

@@ -39,8 +39,8 @@ individual project repos. Separate from product work (Sovary); used to build it.
   BOTH copies (skill + doc), override-example dropped, warn-direct-commit hook
   message updated. FOLLOW-UPS (not done here): (a) the broader SKILL-vs-doc
   engineering-standards drift beyond Rule 10 (Rule 3, Rule 9, Writing-discipline
-  section) — a single-source-of-truth task; (b) the GitHub PR-ruleset on this
-  repo (Thomas UI action — see Open items below).
+  section) — a single-source-of-truth task; (b) the GitHub PR-ruleset — DONE this
+  session (PR requirement removed server-side; force-push/deletion guards kept).
 - AGENT LAYER FULLY RETIRED (Part 4, this commit): coordinator + session-close
   retired, and the 4 web-app auditors (i18n-auditor, brand-guardian,
   performance-auditor, qa-testing) folded in. .claude/agents/ is now EMPTY. The
@@ -58,7 +58,9 @@ individual project repos. Separate from product work (Sovary); used to build it.
   (Sovary/familienkalender) needs it. brand-guardian / performance-auditor /
   qa-testing (visual-brand, bundle/Lighthouse, Playwright live-testing) are web-app
   gates, N/A to CLI/cron — revisit as skills-or-hooks when web work needs them.
-- 6 enforcement hooks (dormant in MINGW desktop, active in terminal claude CLI)
+- 6 enforcement hooks (dormant in MINGW desktop, active in terminal claude CLI) —
+  recorded as ADR-0002 (hooks advisory-only in the Desktop runtime; the constraint
+  the warn-direct-commit hook + secret-scan-belongs-in-CI decisions lean on).
 - Bootstrap: copy-based with content-hash manifest (.asset-manifest)
 - Path variables reconciled this session:
   - MEMORY_DIR -> project-relative .claude/memory/ (32 sites + session-close:396
@@ -86,8 +88,8 @@ individual project repos. Separate from product work (Sovary); used to build it.
   versioned-spec convention codified, .gitattributes for CRLF churn, deferred
   review findings, retro as final act + lessons distillation.
 - Stage 2.5 (not started, needs spec) — then Stage 3 (Sovary calendar strip-down).
-- Open: remove unintended branch-protection ruleset on this repo (blocks locked
-  decision #7 solo direct-to-main); sovary-app pending OS updates + restart.
+- Open: sovary-app pending OS updates + restart. (The unintended branch-protection
+  PR-ruleset that blocked decision #7 is RESOLVED — removed server-side this session.)
 
 ## Known characteristics to respect
 - Runtime: desktop app = MINGW on Windows over \\wsl.localhost UNC; build/test in WSL2.
