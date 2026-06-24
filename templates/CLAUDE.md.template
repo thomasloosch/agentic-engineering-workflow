@@ -22,9 +22,9 @@ This file is read by Claude Code at the start of every session. It overrides or 
 
 [Patterns specific to this codebase that agents should know. Example: "All API responses use the {success, data, error} envelope shape."]
 
-## Standing rules (graduated from lessons)
+## Standing rules
 
-[Promoted lessons specific to this project. New rules added here only after 3+ recurrences in lessons.md.]
+[Project conventions promoted to rules. Add when a pattern proves durable.]
 
 ## Path-scoped rules
 

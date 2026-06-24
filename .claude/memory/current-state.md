@@ -1,7 +1,9 @@
 # Current State — agentic-engineering-workflow
 
-Status snapshot for session orientation. Updated at the close of each work batch.
-Last updated: 2026-06-06
+The hand-maintained orientation / handoff doc for this repo — read it at session
+start to orient. There is no /start-session ritual anymore; THIS file is the
+orientation. Updated by hand as work lands.
+Last updated: 2026-06-24
 
 ## What this repo is
 Meta-tooling for a solo agentic engineering workflow: shared skills, agents,
@@ -13,14 +15,12 @@ individual project repos. Separate from product work (Sovary); used to build it.
 - Engineering pipeline is now user-invoked skills (grilling -> to-prd -> to-issues
   -> tdd; plus setup-engineering-skills, domain-modeling, codebase-design, triage,
   improve-codebase-architecture). spec-writer + implementation-engineer agents
-  retired (this commit); coordinator HELD pending the Part-4 session-ritual
-  decision (it still backs /start-session + /defer).
+  retired (Part 1, 6f6fa67); coordinator retired in Part 4 (this commit).
 - researcher agent retired (this commit); /research is now a thin router to
   /deep-research + inline web tools (mp-skills design §5 Part 2).
 - code-review agent retired; pre-merge review now via /code-review (always) +
-  /security-review (security-touching diffs) built-in skills. The
-  patterns.md/lessons.md self-learning loop persists (Part 4) — it just stops
-  gaining code-review entries (mp-skills design §5 Part 2).
+  /security-review (security-touching diffs) built-in skills (mp-skills design
+  §5 Part 2).
 - security-audit agent retired; strategic per-branch security review now via
   /security-review (mp-skills design §5 Part 2). FOLLOW-UP (not lost):
   /security-review covers pending-change review but NOT full-history secret
@@ -41,9 +41,26 @@ individual project repos. Separate from product work (Sovary); used to build it.
   engineering-standards drift beyond Rule 10 (Rule 3, Rule 9, Writing-discipline
   section) — a single-source-of-truth task; (b) the GitHub PR-ruleset on this
   repo (Thomas UI action — see Open items below).
-- Remaining sub-agents (.claude/agents/): coordinator (held), i18n-auditor,
-  brand-guardian, performance-auditor, qa-testing, session-close — disposition
-  pending (mp-skills design §5 Parts 2-4)
+- AGENT LAYER FULLY RETIRED (Part 4, this commit): coordinator + session-close
+  retired, and the 4 web-app auditors (i18n-auditor, brand-guardian,
+  performance-auditor, qa-testing) folded in. .claude/agents/ is now EMPTY. The
+  engineering pipeline is the slash-skills above; orientation is reading this
+  file by hand.
+- Session ritual + self-learning RETIRED (Part 4): the /start-session, /defer,
+  /close-session, /health-check commands + memory-hygiene skill + agent-compliance.log
+  (the W4 self-grading orphan) removed. lessons.md KEPT as reference knowledge;
+  patterns.md archived to docs/metrics/stage-2-patterns.md. The one forward-looking
+  loss is the escalation-ladder / RED-refusal TODO-nagging (never fired) — the
+  Open-items list is now purely manual.
+- Retired-auditor reusable ideas (flagged, not lost): i18n-auditor's deterministic
+  translation-key consistency check (keys-in-code exist in every locale) is a strong
+  pre-commit/CI HOOK candidate — rebuild if a bilingual web project
+  (Sovary/familienkalender) needs it. brand-guardian / performance-auditor /
+  qa-testing (visual-brand, bundle/Lighthouse, Playwright live-testing) are web-app
+  gates, N/A to CLI/cron — revisit as skills-or-hooks when web work needs them.
+- FOLLOW-UP: .github/workflows/weekly-health.yml loops `for f in .claude/agents/*.md`
+  (frontmatter + scope-boundary checks) — now an empty dir, so they fail CI; make
+  them empty-safe (nullglob/guard) next.
 - 6 enforcement hooks (dormant in MINGW desktop, active in terminal claude CLI)
 - Bootstrap: copy-based with content-hash manifest (.asset-manifest)
 - Path variables reconciled this session:
