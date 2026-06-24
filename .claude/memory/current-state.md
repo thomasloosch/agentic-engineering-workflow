@@ -29,13 +29,18 @@ individual project repos. Separate from product work (Sovary); used to build it.
   MINGW desktop runtime, Finding 4 — false confidence). npm audit is largely
   covered by dependabot where configured (this repo has it). jobs-radar has no
   CI yet; the secret-scan folds into its CI setup.
-- git-operator agent retired (this commit); git ops are inline now — conventions
-  live in engineering-standards Rule 9 (conventional commits) + global CLAUDE
-  (explicit staging), force-push guarded by the block-force-push-to-main hook.
-  Its merge-gating (no-direct-to-main) was contrary to locked-decision #7 and is
-  intentionally gone (mp-skills design §5 Part 2-adjacent). KNOWN CONFLICT: the
-  same no-direct-to-main rule still lives in engineering-standards Rule 10 (both
-  copies) — unresolved against #7, fix separately.
+- git-operator agent retired; git ops are inline now — conventions live in
+  engineering-standards Rule 9 (conventional commits) + global CLAUDE (explicit
+  staging), force-push guarded by the block-force-push-to-main hook. Its
+  merge-gating (no-direct-to-main) was contrary to locked-decision #7 and is
+  intentionally gone (mp-skills design §5 Part 2-adjacent).
+- Rule-10/#7 conflict RESOLVED (this commit): decision #7 recorded as
+  docs/adr/0001-solo-direct-to-main.md; Rule 10 reframed project-conditional in
+  BOTH copies (skill + doc), override-example dropped, warn-direct-commit hook
+  message updated. FOLLOW-UPS (not done here): (a) the broader SKILL-vs-doc
+  engineering-standards drift beyond Rule 10 (Rule 3, Rule 9, Writing-discipline
+  section) — a single-source-of-truth task; (b) the GitHub PR-ruleset on this
+  repo (Thomas UI action — see Open items below).
 - Remaining sub-agents (.claude/agents/): coordinator (held), i18n-auditor,
   brand-guardian, performance-auditor, qa-testing, session-close — disposition
   pending (mp-skills design §5 Parts 2-4)

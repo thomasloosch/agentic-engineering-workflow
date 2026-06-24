@@ -1,0 +1,3 @@
+# Solo projects commit directly to main
+
+Solo and personal-infrastructure projects (this workflow repo, jobs-radar, and similar single-maintainer repos) commit directly to `main` rather than routing every change through a feature branch and PR. A PR's value is the pause before shipping and a second pair of eyes; with no collaborators there is no second reviewer to gate on, and the pause is covered by self-review plus the warn-direct-commit hook. This supersedes the strict reading of Engineering Standard Rule 10, which is reframed as project-conditional in the same change — the branch-and-PR requirement applies to projects with collaborators.

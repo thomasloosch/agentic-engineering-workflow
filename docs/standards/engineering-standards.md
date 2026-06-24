@@ -37,8 +37,8 @@ One function/module/component does one thing. "And" in the name is a signal to s
 ### 9. Conventional Commits
 Format: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`. Automated changelogs depend on this. Bonus: signals professionalism in any code review.
 
-### 10. No direct commits to main
-Even solo. Every change goes via feature branch + PR. The PR is mostly for the pause between writing and shipping; the discipline catches mistakes.
+### 10. No direct commits to main (project-conditional)
+For projects with collaborators, every change goes via feature branch + PR: the PR is the pause and the second reader. Solo projects may commit directly to main (ADR-0001) — there's no second reviewer to gate on; the pause comes from self-review and the warn-direct-commit hook.
 
 ### 11. Bilingual is project-conditional
 If the project ships in two languages, every user-facing string exists in both at commit time. If the project is single-language, this rule is off.
@@ -69,7 +69,6 @@ A project's `CLAUDE.md` can override any rule with explicit justification:
 ## Engineering standards overrides
 
 - Rule 11 (Bilingual): OFF — this project is English-only.
-- Rule 10 (No direct commits to main): OFF for the first 4 commits while bootstrapping.
 ```
 
 Overrides must include a reason. "Because I felt like it" is not a reason.

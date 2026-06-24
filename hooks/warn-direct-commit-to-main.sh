@@ -41,7 +41,7 @@ CURRENT_BRANCH=$(cd "$CWD" && git branch --show-current 2>/dev/null || echo "")
 if [[ "$CURRENT_BRANCH" == "main" ]] || [[ "$CURRENT_BRANCH" == "master" ]]; then
   echo "⚠️  Committing directly to $CURRENT_BRANCH." >&2
   echo "" >&2
-  echo "Engineering Standard #10: changes go via feature branch + PR." >&2
+  echo "Engineering Standard #10 is project-conditional — for solo repos, direct-to-main is expected (ADR-0001); for collaborative repos, branch + PR." >&2
   echo "" >&2
   echo "If this is intentional (bootstrap commit, hotfix, etc.), proceed." >&2
   echo "To suppress this warning for a known-deliberate commit, prefix with:" >&2

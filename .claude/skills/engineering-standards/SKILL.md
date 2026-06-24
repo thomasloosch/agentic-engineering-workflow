@@ -31,7 +31,7 @@ When this skill is loaded, the agent enforces these 12 rules. They apply unless 
 
 9. **Conventional Commits** — format: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`. Automated changelogs depend on this.
 
-10. **No direct commits to main** — even solo. Every change goes via feature branch + PR. The PR is mostly for the pause between writing and shipping; the discipline catches mistakes.
+10. **No direct commits to main (project-conditional)** — for projects with collaborators, every change goes via feature branch + PR: the PR is the pause and the second reader. Solo projects may commit directly to main (ADR-0001) — there's no second reviewer to gate on; the pause comes from self-review and the warn-direct-commit hook.
 
 11. **Bilingual is project-conditional** — if the project ships in two languages, every user-facing string exists in both at commit time. If the project is single-language, this rule is off.
 
@@ -61,7 +61,6 @@ The agent invoking this skill should:
 A project's CLAUDE.md can override any rule with explicit justification. Example: Engineering standards overrides
 
 Rule 11 (Bilingual): OFF — this project is English-only.
-Rule 10 (No direct commits to main): OFF for the first 4 commits while bootstrapping.
 
 
 Overrides must include a reason. "Because I felt like it" is not a reason.
