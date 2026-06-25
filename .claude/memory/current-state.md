@@ -25,11 +25,12 @@ individual project repos. Separate from product work (Sovary); used to build it.
   /security-review (mp-skills design §5 Part 2). Its full-history secret-scan
   (which /security-review does NOT cover — that's pending-change only) now lives
   in CI: .github/workflows/secret-scan.yml (gitleaks, push + PR + workflow_dispatch,
-  fetch-depth 0). BUILT non-blocking (continue-on-error) pending the baseline run +
-  .gitleaks.toml allowlist triage — flip to blocking once the baseline is clean.
-  Secret-scan ONLY: no npm audit here (no package.json; dependabot covers only the
-  Actions versions). jobs-radar's secret-scan still pending — it has no CI yet;
-  folds into its CI setup (the .github/workflows/ci.yml.template).
+  fetch-depth 0). COMPLETE: full-history baseline ran clean (no secrets in history),
+  so the gate is now BLOCKING (continue-on-error removed) and the .gitleaks.toml
+  allowlist stays empty. Secret-scan ONLY: no npm audit here (no package.json;
+  dependabot covers only the Actions versions). jobs-radar's secret-scan still
+  pending — it has no CI yet; folds into its CI setup (the
+  .github/workflows/ci.yml.template).
 - git-operator agent retired; git ops are inline now — conventions live in
   engineering-standards Rule 9 (conventional commits) + global CLAUDE (explicit
   staging), force-push guarded by the block-force-push-to-main hook. Its
