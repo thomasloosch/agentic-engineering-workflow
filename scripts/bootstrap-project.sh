@@ -181,8 +181,9 @@ fi
 # ─── Step 6: Copy TDD gate (runtime + rotator hook) ───────────────────────────
 # The gate RUNTIME (recorder + detector) is the relocatable code copied into each
 # project; the gate's TEST files stay in the workflow repo and are NOT copied. The
-# rotator hook resets the session log on SessionStart — it must be registered in
-# the project's settings.json by hand (see the wiring snippets printed at the end).
+# rotator hook rotates the session log only on an explicit `--new-slice` run (at
+# slice start); on SessionStart it is a non-destructive no-op, so a resume mid-slice
+# never wipes records. Register it in settings.json by hand (wiring printed at the end).
 
 echo "[6/13] Copying TDD gate..."
 tdd_copied=0
@@ -443,7 +444,9 @@ echo ""
 echo "    cross-env is required (Windows-safe env var):  npm install --save-dev cross-env"
 echo ""
 echo " 2) .claude/settings.json — register the rotator on SessionStart (merge if the"
-echo "    file already exists; it resets .claude/logs/tdd-session.log each session):"
+echo "    file already exists). On SessionStart the hook is a no-op; it rotates"
+echo "    .claude/logs/tdd-session.log only when the /tdd executor runs it explicitly"
+echo "    as 'rotate-tdd-session-log.sh --new-slice' at slice start:"
 echo ""
 cat << 'WIRINGEOF'
       {

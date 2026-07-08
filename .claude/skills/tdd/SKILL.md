@@ -58,7 +58,7 @@ Before writing any code:
 
 **You can't test everything.** The spec's prioritization decides which behaviors matter most — focus testing effort on those critical paths and complex logic, not every possible edge case. If the spec is silent or ambiguous on a behavior's priority, treat that as a spec gap to resolve back at the spec gate, not something to invent here.
 
-**Default protocol for feature/logic work:** work test-first with recording on (`npm run tdd`), and the TDD gate (`.claude/tdd/`) verifies the discipline.
+**Default protocol for feature/logic work:** work test-first with recording on (`npm run tdd`), and the TDD gate (`.claude/tdd/`) verifies the discipline. Reset the gate log at slice start — before the first RED — with `bash .claude/hooks/rotate-tdd-session-log.sh --new-slice`. The log is no longer rotated on session boundaries, so resuming mid-slice preserves your red→green history for the detector to judge.
 
 ### 2. Tracer Bullet
 
