@@ -58,7 +58,7 @@ Beyond the 12 code rules, one discipline governs the prose artifacts the workflo
 
 ## What's NOT a rule
 
-These are common standards I've deliberately excluded from v1:
+These are common standards I've deliberately excluded from v1 — don't flag them as violations:
 
 - **DRY** — already implicit in #5 and #7; treated as absolute it produces worse code
 - **100% test coverage** — coverage is a measurement, not a standard
