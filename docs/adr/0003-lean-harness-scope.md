@@ -1,4 +1,4 @@
-# ADR-0001: Lean-harness scope — adopt principles, not the GCP/multi-agent stack
+# ADR-0003: Lean-harness scope — adopt principles, not the GCP/multi-agent stack
 
 **Status:** Accepted
 **Date:** 2026-07-17
