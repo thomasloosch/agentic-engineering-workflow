@@ -178,7 +178,7 @@ else
   fi
 fi
 
-# ─── Step 6: Copy TDD gate (runtime + rotator hook) ───────────────────────────
+# ─── Step 6: Copy TDD gate (runtime + rotator hook) + git secret-scan guard ───
 # The gate RUNTIME (recorder + detector) is the relocatable code copied into each
 # project; the gate's TEST files stay in the workflow repo and are NOT copied. The
 # rotator hook rotates the session log only on an explicit `--new-slice` run (at
@@ -217,6 +217,39 @@ else
   tdd_copied=$((tdd_copied + 1))
 fi
 echo "       Copied $tdd_copied TDD gate file(s) (${tdd_overridden} local overrides preserved)."
+
+# git-native secret-scan pre-commit guard (issue #7). Copied to .claude/git-hooks/
+# (so it is re-syncable via the .claude-relative manifest) and wired with
+# `core.hooksPath`, which genuinely BLOCKS a commit — unlike the advisory Claude
+# Code lifecycle hooks in the MINGW desktop runtime (ADR-0002). CI gitleaks stays
+# the non-bypassable authority; this local guard is fast, fail-closed feedback.
+GUARD_SRC="$WORKFLOW_DIR/hooks/git/pre-commit"
+GUARD_DST="$PROJECT_PATH/.claude/git-hooks/pre-commit"
+if [[ ! -f "$GUARD_SRC" ]]; then
+  echo "       WARN: secret-scan guard not found at $GUARD_SRC — skipping."
+elif [[ -e "$GUARD_DST" && ! -L "$GUARD_DST" ]]; then
+  echo "       Preserving local override: .claude/git-hooks/pre-commit"
+else
+  mkdir -p "$(dirname "$GUARD_DST")"
+  rm -f "$GUARD_DST"
+  cp "$GUARD_SRC" "$GUARD_DST"
+  chmod +x "$GUARD_DST"   # executed by git on every commit
+  record_asset "$GUARD_DST" "git-hooks/pre-commit" "$GUARD_SRC"
+  # Wire core.hooksPath, but never clobber a project's existing custom value.
+  if git -C "$PROJECT_PATH" rev-parse --git-dir >/dev/null 2>&1; then
+    existing="$(git -C "$PROJECT_PATH" config --local --get core.hooksPath 2>/dev/null || true)"
+    if [[ -z "$existing" || "$existing" == ".claude/git-hooks" ]]; then
+      git -C "$PROJECT_PATH" config --local core.hooksPath .claude/git-hooks
+      echo "       Wired secret-scan guard (core.hooksPath=.claude/git-hooks)."
+    else
+      echo "       NOTE: core.hooksPath already set to '$existing' — left as-is."
+      echo "             Install the guard there manually, or unset to use .claude/git-hooks."
+    fi
+  else
+    echo "       NOTE: project is not a git repo — guard copied but not wired."
+    echo "             Run: git -C '$PROJECT_PATH' config core.hooksPath .claude/git-hooks"
+  fi
+fi
 
 # ─── Step 7: Scaffold .claude/rules/ ──────────────────────────────────────────
 

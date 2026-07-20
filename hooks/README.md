@@ -14,6 +14,21 @@ Configured in `~/.claude/settings.json` under the `hooks` key.
 | `warn-direct-commit-to-main.sh` | PreToolUse (Bash) | Warns (does not block) when committing directly to main/master |
 | `auto-update-last-reviewed.sh` | PostToolUse (Edit|Write) | Updates the "Last reviewed" date in global CLAUDE.md when the file is edited |
 
+## Git-native hooks (`hooks/git/`)
+
+`hooks/git/` is a **separate mechanism** from the Claude Code lifecycle hooks above. These are ordinary git hooks, executed by git itself on `git` operations, wired via `git config core.hooksPath hooks/git`. Because git runs them directly, they **genuinely block** even in the MINGW desktop runtime where the Claude Code `PreToolUse` hooks are advisory-only (ADR-0002) — that's the whole reason they live here.
+
+| Script | Git event | Effect |
+|---|---|---|
+| `pre-commit` | `git commit` | Blocks a commit whose staged diff introduces a hard-coded secret (high-signal key formats + secret filenames), fail-closed. Its tests are `pre-commit.test.sh`. |
+
+Rules for this directory:
+
+- **This is the home for git-native hooks.** New git hooks (`pre-push`, `commit-msg`, …) go here so `core.hooksPath` finds them — don't scatter them into `.git/hooks` (untracked, lost on clone) or elsewhere.
+- `core.hooksPath` **replaces all of `.git/hooks`** repo-wide. That's fine here (`.git/hooks` is empty), but it means every git hook this repo wants must live in `hooks/git/`.
+- The local `pre-commit` guard is a **strict high-signal subset** of the CI gitleaks scan (`.github/workflows/secret-scan.yml`), which is the one comprehensive, non-bypassable authority. `git commit --no-verify` skips the local hook by design; CI still fails the push/PR.
+- Bootstrap installs this guard into new projects at `.claude/git-hooks/pre-commit` (re-syncable via the manifest) and wires `core.hooksPath` there.
+
 ## Override mechanisms
 
 Most hooks are intentionally hard to bypass — that's the point. The exceptions:

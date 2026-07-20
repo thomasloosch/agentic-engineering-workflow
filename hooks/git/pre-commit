@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+#
+# git-native pre-commit secret guard (issue #7, slice-1). Blocks a commit whose
+# staged changes introduce a hard-coded secret. Fail-closed: on any internal
+# failure it BLOCKS (with a HOOK ERROR message, distinct from a secret hit) so a
+# hook bug can't silently let a secret through.
+#
+# This is a HIGH-SIGNAL SUBSET on purpose: only unambiguous key formats and
+# known secret filenames. gitleaks in CI (.github/workflows/secret-scan.yml) is
+# the one comprehensive authority; this local subset is a strict subset of it,
+# so the two can't drift into disagreement. Zero external deps (POSIX + grep) so
+# it runs identically under MINGW (desktop) and Linux (CI).
+#
+# Bypass: `git commit --no-verify` skips this hook by design — CI gitleaks is
+# the non-bypassable backstop.
+#
+# Home: git-native hooks for this repo live in hooks/git/, wired via
+# `git config core.hooksPath hooks/git`. See hooks/README.md.
+set -u
+
+hook_error() {  # a tooling failure, NOT a secret — keep the two messages distinct
+  echo "pre-commit: HOOK ERROR — $1" >&2
+  echo "pre-commit: this is a tooling failure, not a secret match. Fix the hook; do not reflexively --no-verify." >&2
+  exit 3
+}
+
+command -v git  >/dev/null 2>&1 || hook_error "git not found on PATH"
+command -v grep >/dev/null 2>&1 || hook_error "grep not found on PATH"
+
+# Fail-closed gate: if we cannot enumerate staged files, we cannot certify the
+# commit is clean, so we block.
+# --no-renames: a rename+modify would otherwise report as 'R' and slip past the
+# ACM filter unscanned. Without rename detection it is Add+Delete; the Add side
+# carries the full new content and gets scanned. Fail-closed: scan every path.
+if ! staged=$(git diff --cached --name-only --no-renames --diff-filter=ACM 2>/dev/null); then
+  hook_error "could not read the staged file list (not a git repository, or git failed)"
+fi
+
+[ -z "$staged" ] && exit 0
+
+# Unambiguous key formats, each length-bounded so ordinary strings ("sk-short",
+# "AIza…" prose) do not false-positive. A strict subset of gitleaks' rules.
+SECRET_RE='AKIA[0-9A-Z]{16}'
+SECRET_RE+='|gh[oprsu]_[A-Za-z0-9]{36,}'
+SECRET_RE+='|sk-[A-Za-z0-9]{20,}'
+SECRET_RE+='|xox[baprs]-[A-Za-z0-9-]{10,}'
+SECRET_RE+='|AIza[0-9A-Za-z_-]{35}'
+SECRET_RE+='|(sk|rk)_live_[A-Za-z0-9]{20,}'
+SECRET_RE+='|-----BEGIN [A-Z ]*PRIVATE KEY-----'
+
+# Allowlisted example/sample/template files are exempt from BOTH rules below:
+# real .env.example files legitimately carry placeholder keys, and blocking them
+# would train reflexive --no-verify.
+is_exempt() {
+  case "$1" in
+    *.example|*.sample|*.template) return 0 ;;
+  esac
+  return 1
+}
+
+# Known secret filenames (blocked regardless of content).
+is_secret_file() {
+  case "$1" in
+    .env|.env.*)                 return 0 ;;
+    *.pem|*.p12|*.pfx)           return 0 ;;
+    id_rsa|id_dsa|id_ed25519)    return 0 ;;
+  esac
+  return 1
+}
+
+found=0
+while IFS= read -r file; do
+  [ -z "$file" ] && continue
+  base=$(basename "$file")
+
+  is_exempt "$base" && continue
+
+  if is_secret_file "$base"; then
+    echo "pre-commit: SECRET DETECTED — staged secret file: $file" >&2
+    found=1
+    continue
+  fi
+
+  # Scan only the lines this commit ADDS (git diff '+' lines, minus the +++ header).
+  if ! diff_out=$(git diff --cached -U0 --no-renames -- "$file" 2>/dev/null); then
+    hook_error "git diff failed for '$file'"
+  fi
+  added=$(printf '%s\n' "$diff_out" | grep '^+' | grep -v '^+++' || true)
+  [ -z "$added" ] && continue
+
+  hits=$(printf '%s\n' "$added" | grep -E "$SECRET_RE" || true)
+  if [ -n "$hits" ]; then
+    while IFS= read -r line; do
+      echo "pre-commit: SECRET DETECTED — $file (added line): ${line#+}" >&2
+    done <<< "$hits"
+    found=1
+  fi
+done <<< "$staged"
+
+if [ "$found" -ne 0 ]; then
+  echo "pre-commit: commit blocked. Remove the secret, or if this is a false positive use an allowlisted *.example/*.sample/*.template file." >&2
+  exit 1
+fi
+exit 0
