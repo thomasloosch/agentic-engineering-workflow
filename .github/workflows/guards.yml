@@ -1,0 +1,28 @@
+name: Guards
+
+# Runs the test suites for the security guards themselves (issue #7), so the
+# secret-scan pre-commit hook and the hallucinated-dependency checker cannot
+# drift. These are the workflow repo's own guard tests; downstream projects run
+# the guards (not these tests) via the bootstrapped CI step.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  guard-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Secret-scan pre-commit guard tests (slice-1)
+        run: bash hooks/git/pre-commit.test.sh
+
+      - name: Hallucinated-dependency checker tests (slice-2)
+        run: node scripts/check-imports.test.mjs

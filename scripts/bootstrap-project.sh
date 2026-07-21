@@ -251,6 +251,25 @@ else
   fi
 fi
 
+# Hallucinated-dependency (real-import) checker (issue #7 slice-2). Runs in CI,
+# invoked by the import-guard step in .github/workflows/ci.yml. It detects the
+# ecosystem per-project at runtime and skips LOUDLY when it has no adapter, so
+# propagating it to a non-Node project cannot become a silent pass. Its tests
+# stay in the workflow repo (same convention as the TDD gate).
+IMPORTS_SRC="$WORKFLOW_DIR/scripts/check-imports.mjs"
+IMPORTS_DST="$PROJECT_PATH/.claude/ci/check-imports.mjs"
+if [[ ! -f "$IMPORTS_SRC" ]]; then
+  echo "       WARN: import checker not found at $IMPORTS_SRC — skipping."
+elif [[ -e "$IMPORTS_DST" && ! -L "$IMPORTS_DST" ]]; then
+  echo "       Preserving local override: .claude/ci/check-imports.mjs"
+else
+  mkdir -p "$(dirname "$IMPORTS_DST")"
+  rm -f "$IMPORTS_DST"
+  cp "$IMPORTS_SRC" "$IMPORTS_DST"
+  record_asset "$IMPORTS_DST" "ci/check-imports.mjs" "$IMPORTS_SRC"
+  echo "       Installed import guard (.claude/ci/check-imports.mjs)."
+fi
+
 # ─── Step 7: Scaffold .claude/rules/ ──────────────────────────────────────────
 
 echo "[7/13] Scaffolding .claude/rules/..."

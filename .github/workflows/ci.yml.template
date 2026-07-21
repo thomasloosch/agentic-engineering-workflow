@@ -24,6 +24,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Hallucinated-dependency guard (import existence)
+        # Flags imports of packages not declared in the dependency manifest —
+        # the slopsquatting signal. Detects the ecosystem at RUNTIME and skips
+        # LOUDLY (visible in the log) if there is no adapter, so a propagated
+        # guard never turns into a silent pass. Installed by bootstrap.
+        run: |
+          if [ -f .claude/ci/check-imports.mjs ]; then
+            node .claude/ci/check-imports.mjs .
+          else
+            echo "WARNING: import guard not installed (.claude/ci/check-imports.mjs missing)"
+            echo "         no hallucinated-dependency check ran — re-run bootstrap to install it"
+          fi
+
       - name: Lint
         run: npm run lint
 
