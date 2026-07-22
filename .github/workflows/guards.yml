@@ -21,6 +21,34 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Executable-bit assertion
+        # Root cause this guards against: new scripts land at 100644, and git
+        # SILENTLY IGNORES a non-executable hook — the pre-commit guard shipped
+        # inert until we caught it. Keyed on the SHEBANG, not the .sh suffix,
+        # because git hooks are conventionally extensionless (hooks/git/pre-commit,
+        # and future pre-push/commit-msg) — a *.sh-only rule would miss exactly
+        # the file that caused the bug. *.mjs is excluded: node-invoked, correctly 100644.
+        run: |
+          fail=0
+          while IFS=$'\t' read -r meta path; do
+            mode="${meta%% *}"
+            case "$path" in *.mjs) continue ;; esac
+            [ -f "$path" ] || continue
+            # Only files meant to be executed directly (shebang) must be +x.
+            head -c 2 "$path" | grep -q '#!' || continue
+            if [ "$mode" != "100755" ]; then
+              echo "FAIL: $path is $mode, expected 100755 (has a shebang; git will not execute it)"
+              fail=1
+            fi
+          done < <(git ls-files -s -- hooks scripts)
+          if [ "$fail" -eq 0 ]; then echo "All shebang scripts under hooks/ and scripts/ are executable."; fi
+          exit $fail
+
+      - name: Engineering-standards SSOT guard (#6)
+        # Promoted from weekly-only: this is a repo-structure invariant, so it
+        # belongs in non-bypassable CI on every push/PR, not on a weekly cadence.
+        run: bash scripts/check-standards-ssot.sh
+
       - name: Secret-scan pre-commit guard tests (slice-1)
         run: bash hooks/git/pre-commit.test.sh
 
