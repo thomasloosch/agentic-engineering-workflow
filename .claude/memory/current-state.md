@@ -81,6 +81,23 @@ individual project repos. Separate from product work (Sovary); used to build it.
     (orchestration stays in desktop app). Commit 627a632.
 - Memory files (this file + lessons.md): tracked in workflow repo as canonical
   knowledge; bootstrapped projects reference these rather than copying.
+- SECURITY GUARDS — ISSUE #7, CLOSED (note: distinct from "locked-decision #7"
+  above, which is the direct-to-main decision; unrelated numbering collision):
+  (a) git-native pre-commit SECRET guard, hooks/git/pre-commit, wired by
+  core.hooksPath, fail-closed, high-signal key formats + secret filenames. It
+  genuinely blocks in MINGW (git runs it) — see the lifecycle-vs-git-native
+  distinction under Known characteristics. A strict SUBSET of CI gitleaks (the
+  authority), so the two cannot drift.
+  (b) hallucinated-dependency IMPORT guard, scripts/check-imports.mjs —
+  language-agnostic core + per-ecosystem adapters, ecosystem detected
+  per-project at RUNTIME, node adapter only; loud-skips when it has no adapter
+  or scans zero files (never a silent pass). Model is manifest-DECLARATION, not
+  registry-existence — see #11 for that gap.
+  (c) docs/checklists/code-review.md — the three AI failure modes.
+  CI: .github/workflows/guards.yml runs both guards' suites, asserts exec bits
+  (shebang ∪ *.sh), and runs the #6 SSOT guard on every push/PR.
+  FRESH CLONES MUST RUN scripts/setup-hooks.sh — core.hooksPath lives in
+  uncommitted .git/config, so the local guard starts inactive otherwise.
 
 ## Projects built on this workflow
 - jobs-radar (v1.5): D6a descriptions, D6b scorer, D7 heartbeat — all shipped,
@@ -88,6 +105,15 @@ individual project repos. Separate from product work (Sovary); used to build it.
   production exercise of the agent system; surfaced workflow findings W1-W5.
 
 ## In flight / next
+- NEXT: #4 eval harness with rubrics (scorer first). jobs-radar#48 folds INTO
+  that session — create jobs-radar CONTEXT.md + fix its stale CLAUDE.md "State
+  files" line (still lists seen.json/profile.yaml/applied.json). Deliberately
+  not built standalone: the scorer is #4's first eval target, so CONTEXT.md
+  supports that work instead of being unrelated cleanup.
+- Backlog, do not build speculatively: #11 (import guard misses a fabricated
+  package that is ALSO declared in package.json; needs a network registry-
+  existence check — build only if it actually happens). #10 (/goal is referenced
+  by the build flow but is not installed in this environment).
 - Batch 3 (workflow-repo half), remaining: deploy-facts discoverability — D2/D4/D5
   already in docs/deployment.md; added "Related runbooks" pointer in
   engineering-standards.md (GitHub URL, reaches all projects via @-import; not
