@@ -102,6 +102,39 @@ process.stdout.write('[check-imports] node adapter\n');
   const specs = nodeAdapter.extractImports(src).map((i) => i.spec);
   check('division not treated as regex', specs.includes('divpkg') && specs.length === 1, specs.join(','));
 }
+{
+  // A regex preceded by a KEYWORD (not punctuation): `return /['"]/...`.
+  // The punctuation-only heuristic read this as division, so the quotes inside
+  // opened a string state and desynced the stripper.
+  const src = [
+    "function f(s) { return /['\"]/.test(s); }",
+    "import real from 'kwpkg'",
+  ].join('\n');
+  const specs = nodeAdapter.extractImports(src).map((i) => i.spec);
+  check('keyword-preceded regex (return): no desync', specs.includes('kwpkg') && specs.length === 1, specs.join(','));
+}
+{
+  const src = "function f(s) { return /['\"]/.test(s); } // import fake from 'phantom-kw'\n";
+  const specs = nodeAdapter.extractImports(src).map((i) => i.spec);
+  check('keyword-preceded regex: trailing comment still stripped', !specs.includes('phantom-kw'), specs.join(','));
+}
+{
+  // Other regex-preceding keywords must behave the same.
+  const src = [
+    "const a = typeof /['\"]/;",
+    "switch (x) { case /['\"]/.source: break; }",
+    "const b = await /['\"]/.exec(s);",
+    "import real from 'kwpkg2'",
+  ].join('\n');
+  const specs = nodeAdapter.extractImports(src).map((i) => i.spec);
+  check('keywords typeof/case/await before regex: no desync', specs.includes('kwpkg2') && specs.length === 1, specs.join(','));
+}
+{
+  // An identifier merely ENDING in a keyword is still division, not a regex.
+  const src = "const myreturn = a / b; const c = d / e;\nimport ok from 'idpkg'\n";
+  const specs = nodeAdapter.extractImports(src).map((i) => i.spec);
+  check('identifier ending in keyword -> still division', specs.includes('idpkg') && specs.length === 1, specs.join(','));
+}
 
 // ── Unit: line numbers survive comment stripping ──
 {

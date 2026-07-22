@@ -47,6 +47,15 @@ const REGEX_PREV = new Set([
   '', '(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}', ';', '+', '-', '*', '%', '~', '^', '<', '>', '\n',
 ]);
 
+// Keywords that can precede a regex literal: `return /re/`, `typeof /re/`.
+// Without these the punctuation-only check reads `return /['"]/` as division,
+// desyncing the stripper so a trailing comment survives and leaks phantom
+// imports. Matched as whole words, so `myreturn / x` stays division.
+const REGEX_PREV_KEYWORDS = new Set([
+  'return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void',
+  'throw', 'case', 'do', 'else', 'yield', 'await',
+]);
+
 // ─── Node adapter ─────────────────────────────────────────────────────────────
 export const nodeAdapter = {
   name: 'node',
@@ -57,6 +66,19 @@ export const nodeAdapter = {
   // used to flag the import syntax inside its OWN comments). String-aware: a
   // '//' inside a string literal must not start a comment. Newlines are kept so
   // reported line numbers stay accurate.
+  // Does the '/' at index i begin a regex literal (vs. division)? Punctuation
+  // before it is the common case; a preceding KEYWORD (`return /re/`) is the
+  // one the punctuation-only heuristic got wrong. Whole-word match, so an
+  // identifier merely ending in a keyword (`myreturn / x`) stays division.
+  startsRegexLiteral(src, i, lastSig) {
+    if (REGEX_PREV.has(lastSig)) return true;
+    let j = i - 1;
+    while (j >= 0 && /\s/.test(src[j])) j--;
+    const end = j + 1;
+    while (j >= 0 && /[A-Za-z_$]/.test(src[j])) j--;
+    return REGEX_PREV_KEYWORDS.has(src.slice(j + 1, end));
+  },
+
   stripComments(src) {
     let out = '';
     let state = 'code'; // code | line | block | single | double | template | regex
@@ -70,7 +92,7 @@ export const nodeAdapter = {
         // A '/' after an operator/opening bracket starts a REGEX literal, not
         // division. Quotes inside one (e.g. /['"]/) must not open a string, or
         // the stripper desyncs and later comments survive unstripped.
-        if (c === '/' && REGEX_PREV.has(lastSig)) { state = 'regex'; inClass = false; out += c; continue; }
+        if (c === '/' && this.startsRegexLiteral(src, i, lastSig)) { state = 'regex'; inClass = false; out += c; continue; }
         if (c === "'") state = 'single';
         else if (c === '"') state = 'double';
         else if (c === '`') state = 'template';
