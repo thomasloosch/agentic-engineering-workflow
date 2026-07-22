@@ -3,7 +3,7 @@
 The hand-maintained orientation / handoff doc for this repo — read it at session
 start to orient. There is no /start-session ritual anymore; THIS file is the
 orientation. Updated by hand as work lands.
-Last updated: 2026-06-24
+Last updated: 2026-07-22
 
 ## What this repo is
 Meta-tooling for a solo agentic engineering workflow: shared skills, agents,
@@ -105,4 +105,12 @@ individual project repos. Separate from product work (Sovary); used to build it.
 - Never commit via the GitHub web UI (commits direct to main without local
   sync — the two-write-path hazard, finding G). Commit runtime (MINGW desktop
   vs WSL2) is incidental to integrity; build/test belongs in WSL2 (above).
-- Hooks dormant in desktop app — git discipline is manual there.
+- Claude Code LIFECYCLE hooks (PreToolUse etc., hooks/*.sh) are dormant in the
+  desktop app — that git discipline is manual there (ADR-0002). This does NOT
+  apply to GIT-NATIVE hooks (hooks/git/, wired via core.hooksPath): git runs
+  those itself, so they genuinely block in MINGW. Verified in #7 slice-1 — do
+  not collapse the two mechanisms back together.
+- Exec-bit CI assertion keys on shebang ∪ *.sh — extensionless scripts
+  (hooks/git/pre-commit) exist; a *.sh-only rule would miss the file that caused
+  the original bug (it shipped 100644, so git silently ignored it). Do not
+  "tidy" this back to *.sh-only: that silently re-opens the hole.
