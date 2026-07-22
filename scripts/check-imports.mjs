@@ -176,6 +176,13 @@ export const nodeAdapter = {
     return s.split('/')[0]; // pkg from pkg/sub/path
   },
 
+  // A TS project may declare only the types package ('@types/foo') for a
+  // dependency it imports as 'foo'. The dependency IS declared, so flagging it
+  // would be a false positive.
+  isDeclared(name, declared) {
+    return declared.has(name) || declared.has('@types/' + name);
+  },
+
   // Declared = every dependency field, so a devDependency counts as declared.
   declaredPackages(manifest) {
     const fields = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'];
@@ -235,7 +242,9 @@ export function findUndeclared(files, adapter, declared) {
     for (const { line, spec } of adapter.extractImports(source)) {
       if (adapter.isRelativeOrAlias(spec) || adapter.isBuiltin(spec)) continue;
       const name = adapter.packageName(spec);
-      if (!declared.has(name)) {
+      // Adapters may widen what counts as declared (seam); default is exact match.
+      const ok = adapter.isDeclared ? adapter.isDeclared(name, declared) : declared.has(name);
+      if (!ok) {
         findings.push({ file, line, name, reason: 'not declared in the dependency manifest' });
       }
     }

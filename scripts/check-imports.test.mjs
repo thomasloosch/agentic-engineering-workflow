@@ -178,6 +178,37 @@ check('alias: @scope/pkg is NOT an alias', !nodeAdapter.isRelativeOrAlias('@scop
   rmSync(root, { recursive: true, force: true });
 }
 
+// ── Unit: TypeScript type-only imports are HANDLED (not out of scope) ──
+{
+  const src = [
+    "import type { Foo } from 'type-only-pkg'",
+    "import { type Bar, baz } from 'inline-type-pkg'",
+    "export type { Q } from 'export-type-pkg'",
+  ].join('\n');
+  const specs = nodeAdapter.extractImports(src).map((i) => i.spec);
+  check('ts: import type extracted', specs.includes('type-only-pkg'), specs.join(','));
+  check('ts: inline { type X } extracted', specs.includes('inline-type-pkg'), specs.join(','));
+  check('ts: export type extracted', specs.includes('export-type-pkg'), specs.join(','));
+}
+{
+  // A fabricated type-only import must still be flagged.
+  const root = tmp();
+  const f = w(root, 'a.ts', "import type { X } from 'fake-types-pkg'\n");
+  const hits = findUndeclared([f], nodeAdapter, new Set(['react']));
+  check('ts: fabricated type-only import -> flagged', hits.some((h) => h.name === 'fake-types-pkg'),
+    hits.map((h) => h.name).join(','));
+  rmSync(root, { recursive: true, force: true });
+}
+{
+  // Types-only dependency: only '@types/foo' is declared, code imports 'foo'.
+  // Flagging that is a false positive — the dependency IS declared.
+  const root = tmp();
+  const f = w(root, 'a.ts', "import type { X } from 'foo'\n");
+  const hits = findUndeclared([f], nodeAdapter, new Set(['@types/foo']));
+  check('ts: @types/<pkg> counts as declaring <pkg>', hits.length === 0, hits.map((h) => h.name).join(','));
+  rmSync(root, { recursive: true, force: true });
+}
+
 // ── Unit: declaredPackages folds devDependencies in ──
 {
   const declared = nodeAdapter.declaredPackages({
