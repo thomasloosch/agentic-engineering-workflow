@@ -34,8 +34,13 @@ jobs:
             mode="${meta%% *}"
             case "$path" in *.mjs) continue ;; esac
             [ -f "$path" ] || continue
-            # Only files meant to be executed directly (shebang) must be +x.
-            head -c 2 "$path" | grep -q '#!' || continue
+            # Union of two rules so neither can be evaded: any *.sh, OR any file
+            # with a shebang (which catches extensionless git hooks like
+            # hooks/git/pre-commit — the file that actually caused the bug).
+            case "$path" in
+              *.sh) ;;
+              *) head -c 2 "$path" | grep -q '#!' || continue ;;
+            esac
             if [ "$mode" != "100755" ]; then
               echo "FAIL: $path is $mode, expected 100755 (has a shebang; git will not execute it)"
               fail=1
