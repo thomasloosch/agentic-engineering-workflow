@@ -140,3 +140,27 @@ individual project repos. Separate from product work (Sovary); used to build it.
   (hooks/git/pre-commit) exist; a *.sh-only rule would miss the file that caused
   the original bug (it shipped 100644, so git silently ignored it). Do not
   "tidy" this back to *.sh-only: that silently re-opens the hole.
+
+### Verification lessons (2026-07-17 session)
+- TEST THROUGH THE REAL INVOCATION PATH, not a convenient proxy. The secret
+  guard shipped INERT because every test invoked it as `bash pre-commit`, and
+  `bash <file>` can never observe a file-MODE problem — git runs a hook by mode,
+  so a 100644 hook is silently skipped while every bash-invoked test still
+  passes. A guard's tests must exercise it the way git/production actually
+  invokes it (direct execution honouring the mode), or the test validates a path
+  that never runs in reality. This is the sharp form of "green != verified":
+  green through the WRONG invocation path is worse than red, because it buys
+  false confidence.
+- TEST/EVAL SCRIPTS RUN ON ISOLATED FIXTURES, NEVER LIVE STATE. Convention:
+  create the working area with `mktemp -d`; never operate on the repo's own
+  .git, index, or any live data store. Guard every directory change explicitly —
+  `cd "$tmp" || exit 1` — do NOT rely on `set -e` to abort a bare `cd` (it does
+  not do so reliably; a silently-failed `cd` leaves the script running in the
+  PREVIOUS directory). Origin: a negative test mutated the live git index when a
+  `cd` failed silently under `set -e` (caught and restored in-turn, nothing
+  pushed). LOAD-BEARING FOR #4: eval scripts run adjacent to jobs-radar's live
+  production store — a silent `cd` failure there corrupts real data, not a
+  throwaway fixture.
+- ENFORCEMENT IS DEFERRED, NOT BUILT. One incident -> record the convention and
+  add it to the /goal checklist (#10). Do NOT build tooling (e.g. a linter for
+  tests touching .git) unless it recurs. YAGNI.
