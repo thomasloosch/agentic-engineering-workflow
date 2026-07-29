@@ -24,6 +24,21 @@ if [ "${1:-}" = "--new-slice" ]; then
   LOG_DIR="$(dirname "$LOG")"
   [ -d "$LOG_DIR" ] || mkdir -p "$LOG_DIR"
   printf '# SLICE %s new-slice\n' "$ISO" > "$LOG"
+  # Stamp the commit the slice starts FROM (#12 part 2). The detector resolves the
+  # slice baseline — the tests that already existed — by reading test files at this
+  # ref, so pre-existing tests are no longer misread as test-after when a recorded
+  # run happens to include them.
+  #
+  # This is the only moment that reliably predates the slice's own tests, which is
+  # why it is stamped here and not derived later: HEAD moves as the slice commits,
+  # and a later HEAD would exempt the very tests being judged.
+  #
+  # Best-effort by design. No git, no repo, detached weirdness → no stamp, and the
+  # detector then applies no baseline at all. That is the safe direction: the old
+  # false-positive noise, never a silently-exempted test.
+  GIT_DIR_CTX="${PROJECT_DIR:-$LOG_DIR}"
+  SHA=$(git -C "$GIT_DIR_CTX" rev-parse HEAD 2>/dev/null || true)
+  [ -n "$SHA" ] && printf '# BASE %s\n' "$SHA" >> "$LOG"
   exit 0
 fi
 

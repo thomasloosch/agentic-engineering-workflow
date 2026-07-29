@@ -162,4 +162,55 @@ describe('tdd-detector', () => {
     assert.ok(/test-after/i.test(r), `expected the test-after finding, got: ${r}`);
     assert.ok(/regress/i.test(r), `expected the regression finding NOT to be masked, got: ${r}`);
   });
+
+  // --- Issue #12 part 2: the slice baseline.
+  // A test that existed BEFORE the slice began is recorded pass-first whenever the
+  // run touches its file, which is not evidence of test-after — it is evidence that
+  // node ran the whole file. Baseline keys are therefore exempt from the TEST-AFTER
+  // rule. They remain subject to REGRESSION: a pre-existing test that breaks during
+  // the slice is exactly what we want to hear about.
+  test('a baseline test recorded pass-first is not reported as test-after', () => {
+    const log = [
+      't\tf::old\tpass', // predates the slice — recorded only because the file ran
+      't\tf::new\tfail',
+      't\tf::new\tpass',
+    ].join('\n');
+    const withoutBaseline = classify(log);
+    assert.ok(/test-after/i.test(withoutBaseline), `precondition: bare classify still flags it, got: ${withoutBaseline}`);
+
+    const r = classify(log, { baseline: ['f::old'] });
+    assert.ok(!/test-after/i.test(r), `baseline test must not be test-after, got: ${r}`);
+    assert.ok(/healthy/i.test(r), `expected HEALTHY once the baseline is excluded, got: ${r}`);
+  });
+
+  // The batching heuristic compares entry POSITIONS ("did every fail precede every
+  // pass"), so a baseline test passing early drags firstPassIdx to 0 and the check
+  // can never fire. That blind spot is independent of the de-masking in part 1 —
+  // removing the early `return` does not help if the heuristic itself is looking at
+  // the wrong rows. Batching must therefore be judged over slice tests only.
+  test('baseline passes do not hide horizontal batching among the new tests', () => {
+    const log = [
+      't\tf::old\tpass', // baseline pass at index 0 — drags firstPassIdx down
+      't\tf::A\tfail',
+      't\tf::B\tfail',
+      't\tf::A\tpass',
+      't\tf::B\tpass', // A and B: written upfront, greened together
+    ].join('\n');
+    const r = classify(log, { baseline: ['f::old'] });
+    assert.ok(/horizontal|batching/i.test(r), `expected batching among the slice's tests, got: ${r}`);
+  });
+
+  // The HEALTHY line asserts "each first appeared failing and then passed". Counting
+  // baseline tests in it makes that sentence untrue of the tests it names — they
+  // first appeared PASSING, which is precisely why they were exempted. The verdict
+  // must describe only the tests it actually judged.
+  test('HEALTHY counts the slice\'s tests, not the exempted baseline', () => {
+    const log = [
+      't\tf::old\tpass',
+      't\tf::new\tfail',
+      't\tf::new\tpass',
+    ].join('\n');
+    const r = classify(log, { baseline: ['f::old'] });
+    assert.match(r, /^HEALTHY: 1 test\(s\)/, `expected a count of 1 (the slice's own), got: ${r}`);
+  });
 });

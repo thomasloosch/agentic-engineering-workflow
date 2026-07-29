@@ -57,6 +57,32 @@ else
 fi
 teardown
 
+# #12 part 2 — the slice baseline needs the commit the slice STARTED from, stamped
+# here because this is the only moment that reliably predates the slice's own tests.
+setup
+git -C "$TESTDIR" init -q 2>/dev/null
+git -C "$TESTDIR" -c user.email=t@e -c user.name=t commit -q --allow-empty -m base 2>/dev/null
+bash "$HOOK" --new-slice
+EXPECTED_SHA=$(git -C "$TESTDIR" rev-parse HEAD 2>/dev/null)
+if grep -qE "^# BASE $EXPECTED_SHA$" "$LOG"; then
+  pass "--new-slice → BASE header stamps the slice's start commit"
+else
+  fail "--new-slice → BASE header stamps the slice's start commit" "expected '# BASE $EXPECTED_SHA'; log is now: [$(cat "$LOG")]"
+fi
+teardown
+
+# Not a git repo (or git unavailable): the stamp is simply omitted. The detector
+# treats a missing BASE as "no baseline", i.e. today's noisy-but-safe behaviour —
+# it must never fall back to a guessed ref, which would exempt the slice's own tests.
+setup
+bash "$HOOK" --new-slice
+if grep -qE '^# SLICE .* new-slice$' "$LOG" && ! grep -q '^# BASE' "$LOG"; then
+  pass "--new-slice outside a git repo → SLICE header, no BASE stamp"
+else
+  fail "--new-slice outside a git repo → SLICE header, no BASE stamp" "expected a SLICE header and no BASE line; log is now: [$(cat "$LOG")]"
+fi
+teardown
+
 echo ""
 if [ "$FAILED" -eq 0 ]; then echo "ALL GREEN"; else echo "SOME RED"; fi
 exit "$FAILED"

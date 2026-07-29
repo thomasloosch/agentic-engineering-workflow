@@ -9,7 +9,14 @@ function parseLine(line) {
   return { timestamp, testname, outcome };
 }
 
-function classify(logText) {
+// `opts.baseline` is the set of `file::testname` keys that already existed when the
+// slice began (#12 part 2). Those tests are recorded pass-first whenever a run
+// touches their file — node runs the whole file — which is not evidence of
+// test-after. Defaulting to empty preserves the previous behaviour exactly, so a
+// caller that cannot resolve a baseline degrades to noisy-but-safe rather than
+// silently exempting tests it should be judging.
+function classify(logText, opts = {}) {
+  const baseline = new Set(opts.baseline || []);
   // Split on \r?\n so a Windows-written log (CRLF) doesn't leave a stray \r on
   // the outcome field. Keep only real test records: the "# SESSION" header and
   // "COLLISION" diagnostic lines have no pass/fail outcome and are dropped here.
@@ -43,9 +50,11 @@ function classify(logText) {
   // down with it. The checks are independent, so the report is too.
   const findings = [];
 
-  // A test whose first appearance is a pass was written after its code.
+  // A test whose first appearance is a pass was written after its code — unless it
+  // predates the slice, in which case its pass is an artifact of node running the
+  // whole file, not a discipline violation.
   const testAfter = [...firstSeen.entries()]
-    .filter(([, o]) => o === 'pass')
+    .filter(([name, o]) => o === 'pass' && !baseline.has(name))
     .map(([name]) => name);
   if (testAfter.length > 0) {
     findings.push(`TEST-AFTER detected: ${testAfter.join(', ')} — first appearance was a pass. In genuine TDD every test must fail before it passes.`);
@@ -68,10 +77,17 @@ function classify(logText) {
   // Horizontal batching: >= 2 tests where every fail precedes every pass (written
   // upfront, made green in one shot). A SINGLE test's red->green is normal TDD,
   // not batching — so require at least two distinct tests here.
-  const lastFailIdx  = entries.reduce((acc, e, i) => (e.outcome === 'fail' ? i : acc), -1);
-  const firstPassIdx = entries.findIndex((e) => e.outcome === 'pass');
-  if (firstSeen.size >= 2 && lastFailIdx !== -1 && firstPassIdx > lastFailIdx) {
-    findings.push(`HORIZONTAL BATCHING: all ${firstSeen.size} tests failed before any passed. Tests appear to have been written upfront and made to pass in one batch, not one-at-a-time TDD.`);
+  //
+  // Judged over SLICE tests only. This check compares row POSITIONS, so a baseline
+  // test passing early drags firstPassIdx to the front and the condition can never
+  // hold — the batching stays invisible however the findings are reported. Dropping
+  // baseline rows is what lets the check see the slice's own sequence.
+  const sliceEntries = entries.filter((e) => !baseline.has(e.testname));
+  const sliceTestCount = new Set(sliceEntries.map((e) => e.testname)).size;
+  const lastFailIdx  = sliceEntries.reduce((acc, e, i) => (e.outcome === 'fail' ? i : acc), -1);
+  const firstPassIdx = sliceEntries.findIndex((e) => e.outcome === 'pass');
+  if (sliceTestCount >= 2 && lastFailIdx !== -1 && firstPassIdx > lastFailIdx) {
+    findings.push(`HORIZONTAL BATCHING: all ${sliceTestCount} tests failed before any passed. Tests appear to have been written upfront and made to pass in one batch, not one-at-a-time TDD.`);
   }
 
   // Every finding, most-specific first, so a spurious TEST-AFTER can no longer hide
@@ -83,7 +99,13 @@ function classify(logText) {
 
   // Passes present, every test red-first, not batched: healthy one-at-a-time TDD
   // (covers a single test's red->green and genuine multi-test interleaving).
-  return `HEALTHY: ${firstSeen.size} test(s), each first appeared failing and then passed. Consistent with one-test-at-a-time TDD.`;
+  //
+  // Counts the SLICE's tests, not the exempted baseline: the sentence claims each
+  // test first appeared failing, which is untrue of baseline tests — they first
+  // appeared passing, which is why they were exempted. A verdict must not assert
+  // something false about the tests it names.
+  const baselineNote = baseline.size > 0 ? ` (${baseline.size} pre-existing test(s) excluded)` : '';
+  return `HEALTHY: ${sliceTestCount} test(s), each first appeared failing and then passed${baselineNote}. Consistent with one-test-at-a-time TDD.`;
 }
 
 module.exports = { classify };
