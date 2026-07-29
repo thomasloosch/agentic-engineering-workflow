@@ -145,4 +145,21 @@ describe('tdd-detector', () => {
     assert.ok(/healthy/i.test(r), `expected HEALTHY, got: ${r}`);
     assert.ok(!/horizontal|batching/i.test(r), `must not say HORIZONTAL, got: ${r}`);
   });
+
+  // --- Issue #12 part 1: findings must not mask one another.
+  // classify() used to `return` on the first violation it found, so a TEST-AFTER
+  // silently suppressed any REGRESSION or HORIZONTAL BATCHING in the same log. That
+  // matters because TEST-AFTER is the finding most prone to firing spuriously (a
+  // pre-existing test in an edited file is recorded pass-first), so the noisiest
+  // check was hiding the quieter, more serious ones. Every finding is now reported.
+  test('a test-after does not mask a regression in the same log', () => {
+    const r = classify([
+      't\tf::A\tpass', // first-seen pass -> TEST-AFTER
+      't\tf::B\tfail',
+      't\tf::B\tpass',
+      't\tf::B\tfail', // passed then failed -> REGRESSION
+    ].join('\n'));
+    assert.ok(/test-after/i.test(r), `expected the test-after finding, got: ${r}`);
+    assert.ok(/regress/i.test(r), `expected the regression finding NOT to be masked, got: ${r}`);
+  });
 });

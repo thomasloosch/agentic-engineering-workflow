@@ -35,12 +35,20 @@ function classify(logText) {
     return `IN-PROGRESS: ${firstSeen.size} test(s) failing, no passes yet — not a verdict (red phase incomplete).`;
   }
 
+  // Findings are COLLECTED, never returned early (#12). Returning on the first
+  // violation let the noisiest check suppress the quieter ones: TEST-AFTER fires
+  // spuriously whenever a recorded run includes a test that predates the slice (a
+  // pre-existing test in an edited file is recorded pass-first), and while it was
+  // returning early it took any REGRESSION or HORIZONTAL BATCHING in the same log
+  // down with it. The checks are independent, so the report is too.
+  const findings = [];
+
   // A test whose first appearance is a pass was written after its code.
   const testAfter = [...firstSeen.entries()]
     .filter(([, o]) => o === 'pass')
     .map(([name]) => name);
   if (testAfter.length > 0) {
-    return `TEST-AFTER detected: ${testAfter.join(', ')} — first appearance was a pass. In genuine TDD every test must fail before it passes.`;
+    findings.push(`TEST-AFTER detected: ${testAfter.join(', ')} — first appearance was a pass. In genuine TDD every test must fail before it passes.`);
   }
 
   // A test that passed and then failed again has regressed.
@@ -54,7 +62,7 @@ function classify(logText) {
     }
   }
   if (regressions.length > 0) {
-    return `REGRESSION detected: ${regressions.join(', ')} — passed then failed again. A previously-passing test has broken; likely a bad implementation change or test-order dependency.`;
+    findings.push(`REGRESSION detected: ${regressions.join(', ')} — passed then failed again. A previously-passing test has broken; likely a bad implementation change or test-order dependency.`);
   }
 
   // Horizontal batching: >= 2 tests where every fail precedes every pass (written
@@ -63,7 +71,14 @@ function classify(logText) {
   const lastFailIdx  = entries.reduce((acc, e, i) => (e.outcome === 'fail' ? i : acc), -1);
   const firstPassIdx = entries.findIndex((e) => e.outcome === 'pass');
   if (firstSeen.size >= 2 && lastFailIdx !== -1 && firstPassIdx > lastFailIdx) {
-    return `HORIZONTAL BATCHING: all ${firstSeen.size} tests failed before any passed. Tests appear to have been written upfront and made to pass in one batch, not one-at-a-time TDD.`;
+    findings.push(`HORIZONTAL BATCHING: all ${firstSeen.size} tests failed before any passed. Tests appear to have been written upfront and made to pass in one batch, not one-at-a-time TDD.`);
+  }
+
+  // Every finding, most-specific first, so a spurious TEST-AFTER can no longer hide
+  // a real one. HEALTHY remains mutually exclusive with any finding — it is only
+  // reached when nothing at all was found.
+  if (findings.length > 0) {
+    return findings.join('\n');
   }
 
   // Passes present, every test red-first, not batched: healthy one-at-a-time TDD
