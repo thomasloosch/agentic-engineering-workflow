@@ -48,5 +48,22 @@ if discovery returns nothing.
 
 Sub-targets: `npm run test:node`, `npm run test:sh`.
 
+## Run-level observability
+
+```sh
+npm run observe            # this project
+npm run observe -- --all   # every project, split per project
+npm run observe -- --json  # machine-readable
+```
+
+Summarises what agent runs actually did — tool distribution, per-turn token usage,
+model mix, API errors — by reading the traces Claude Code already writes to
+`~/.claude/projects/<slug>/*.jsonl`. Read-only; it instruments nothing.
+
+Reports **tokens, not cost** (a price table drifts silently — multiply externally)
+and **no latency** (per-request duration isn't recorded; wall-clock gaps include
+think time). Emits **metrics only, never conversation content** — asserted in
+`scripts/observe.test.mjs`.
+
 The gate deliberately does **not** record its own TDD cycles — see
 [ADR-0005](docs/adr/0005-tdd-gate-does-not-self-record.md).

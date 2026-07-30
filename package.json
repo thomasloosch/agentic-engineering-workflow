@@ -7,7 +7,8 @@
     "test": "node scripts/run-tests.mjs",
     "test:node": "node --test \".claude/tdd/*.test.js\" \"scripts/*.test.mjs\"",
     "test:sh": "node scripts/run-tests.mjs --sh-only",
-    "lint": "node node_modules/eslint/bin/eslint.js .claude/tdd scripts"
+    "lint": "node node_modules/eslint/bin/eslint.js .claude/tdd scripts",
+    "observe": "node scripts/observe.mjs"
   },
   "engines": {
     "node": ">=20"
