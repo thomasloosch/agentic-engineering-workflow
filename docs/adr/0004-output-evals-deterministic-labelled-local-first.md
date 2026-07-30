@@ -81,5 +81,8 @@ Supporting mechanics from the first build, adopted as part of the pattern:
   rather than silently running on placeholder truth.
 - A second project wanting evals copies the four decisions and the mechanics list;
   if that copy step recurs, extraction to a shared harness becomes a live issue.
-- Forward links: eval results are a signal #5 (observability) should trace and
-  #10 (`/goal`) will consume as a verification input.
+- Forward links: eval results are a signal #5 (observability) should trace. The
+  `--json` output is a verification input for **whoever is verifying — human review
+  or CI**, not for a planned command: #10's `/goal` was struck (ADR-0006), which
+  also carries the revisit trigger should verification ever run without a human in
+  the loop.

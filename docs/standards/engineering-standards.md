@@ -12,6 +12,15 @@ The 12 rules every project in this workflow inherits by default. Each rule has a
 ### 2. Verify before declaring done
 Don't say "should work" — say "ran it, output was X, matched expectation Y." Verification is the final step of every task, not an optional polish.
 
+What that requires in practice is accumulated in the verification checklist —
+concrete checks derived from real misses, every one surfaced by human or e2e review
+rather than agent self-check:
+https://github.com/thomasloosch/agentic-engineering-workflow/blob/main/docs/checklists/verification.md
+(Absolute URL because this file is copied into projects where a relative `docs/` path
+would not resolve.) **Per-issue acceptance verification** — "did this build satisfy
+issue X's stated criteria" — is covered by this rule plus human review, deliberately
+not by tooling; see ADR-0006 for the revisit trigger.
+
 ### 3. Plan before non-trivial code
 Anything touching ≥3 files gets a written plan first — the `/to-prd` skill produces it (grilling → PRD → issues). Plans surface ambiguity cheaply; code surfaces it expensively.
 

@@ -112,8 +112,10 @@ individual project repos. Separate from product work (Sovary); used to build it.
   supports that work instead of being unrelated cleanup.
 - Backlog, do not build speculatively: #11 (import guard misses a fabricated
   package that is ALSO declared in package.json; needs a network registry-
-  existence check — build only if it actually happens). #10 (/goal is referenced
-  by the build flow but is not installed in this environment).
+  existence check — build only if it actually happens). #10 CLOSED — /goal struck,
+  record corrected (ADR-0006); catch-list rehomed to docs/checklists/verification.md.
+  Revisit only if verification is routed to a cheaper model (#8) or run without a
+  human in the loop.
 - Batch 3 (workflow-repo half), remaining: deploy-facts discoverability — D2/D4/D5
   already in docs/deployment.md; added "Related runbooks" pointer in
   engineering-standards.md (GitHub URL, reaches all projects via @-import; not
@@ -161,6 +163,8 @@ individual project repos. Separate from product work (Sovary); used to build it.
   pushed). LOAD-BEARING FOR #4: eval scripts run adjacent to jobs-radar's live
   production store — a silent `cd` failure there corrupts real data, not a
   throwaway fixture.
-- ENFORCEMENT IS DEFERRED, NOT BUILT. One incident -> record the convention and
-  add it to the /goal checklist (#10). Do NOT build tooling (e.g. a linter for
-  tests touching .git) unless it recurs. YAGNI.
+- ENFORCEMENT IS DEFERRED, NOT BUILT. One incident -> record the convention in
+  docs/checklists/verification.md (item 6), referenced from Standard 2. (Was "the
+  /goal checklist (#10)"; /goal was struck — ADR-0006 — and the catch-list rehomed
+  there.) Do NOT build tooling (e.g. a linter for tests touching .git) unless it
+  recurs. YAGNI.
