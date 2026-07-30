@@ -64,6 +64,11 @@ These are common standards I've deliberately excluded from v1 — don't flag the
 - **100% test coverage** — coverage is a measurement, not a standard
 - **TDD** — useful sometimes, dogma other times
   - Test-first isn't mandated — but the TDD gate (`.claude/tdd/`) verifies test-first discipline when used, and is the default for feature/logic builds.
+- **Evals** — the bar where correctness is a judgment call, absent where it isn't
+  - For logic whose correctness is a *judgment* — a scorer, classifier, ranker, or anything where "is this output right?" needs a human to answer — a labelled eval is the only real check, and it comes before the tuning it guards. Set the bar at the eval, not a demo.
+  - For deterministic logic, tests already answer the question and an eval adds nothing. Don't build one to look rigorous.
+  - **Eval-green is not verified.** It is regression protection on the cases you labelled — it does not prove the change generalises to live input. The eval equivalent of Rule 2: a passing eval says "these cases still hold," never "this works." Growing the labelled set is how that gap closes; a fresh capture is how you check it.
+  - Methodology (labels human-owned with provenance, deterministic exact-match, ambient inputs frozen, local-first): ADR-0004.
 - **Maximum line length** — handled by your linter
 - **Specific design patterns** (Singleton, Factory, etc.) — pattern-cargo-culting is a sin
 
