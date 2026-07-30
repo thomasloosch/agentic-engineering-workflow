@@ -59,3 +59,23 @@ jobs:
 
       - name: Hallucinated-dependency checker tests (slice-2)
         run: node scripts/check-imports.test.mjs
+
+      - name: Install dev dependencies (#13)
+        run: npm ci
+
+      - name: Lint (#13 — Standard 1, applied to this repo at last)
+        # The repo that publishes "lint clean before commit" had nothing to run
+        # here until #13, and a real prefer-const violation was sitting in
+        # check-imports.mjs. Lints this repo's JS only; hooks/ are shell.
+        run: npm run lint
+
+      - name: All test suites (#13)
+        # The TDD gate's own 30 tests ran in NO workflow before #13 — the one
+        # component every downstream project trusts was verified only when a human
+        # remembered to type the command locally. Node's runner skips dot-prefixed
+        # directories, so `.claude/tdd/` is invisible to a bare `node --test`;
+        # run-tests.mjs discovers the suites explicitly and fails loudly if
+        # discovery returns nothing. This re-runs the two guard suites named above;
+        # that redundancy is deliberate — each named step stays independently
+        # diagnosable in the log.
+        run: npm test

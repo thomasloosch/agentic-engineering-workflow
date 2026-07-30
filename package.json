@@ -1,0 +1,19 @@
+{
+  "name": "agentic-engineering-workflow",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Solo agentic engineering workflow — skills, guards, and the TDD gate distributed to projects via bootstrap.",
+  "scripts": {
+    "test": "node scripts/run-tests.mjs",
+    "test:node": "node --test \".claude/tdd/*.test.js\" \"scripts/*.test.mjs\"",
+    "test:sh": "node scripts/run-tests.mjs --sh-only",
+    "lint": "node node_modules/eslint/bin/eslint.js .claude/tdd scripts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0"
+  },
+  "license": "UNLICENSED"
+}

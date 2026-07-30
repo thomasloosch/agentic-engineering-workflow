@@ -168,7 +168,7 @@ export const nodeAdapter = {
 
   // Reduce a specifier to its installable package name.
   packageName(spec) {
-    let s = spec.startsWith('node:') ? spec.slice(5) : spec;
+    const s = spec.startsWith('node:') ? spec.slice(5) : spec;
     if (s.startsWith('@')) {
       const parts = s.split('/');
       return parts.length >= 2 ? parts[0] + '/' + parts[1] : s; // @scope/pkg
