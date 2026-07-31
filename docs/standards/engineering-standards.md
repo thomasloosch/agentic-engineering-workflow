@@ -65,6 +65,57 @@ Beyond the 12 code rules, one discipline governs the prose artifacts the workflo
 
 - **No vague terms.** Banned: "seamlessly integrates," "robustly handles," "intuitive UX," and their kin — they read as finished but specify nothing. Replace each with a concrete, testable statement: what the thing actually does, in language an acceptance criterion could check. If you can't make it concrete, that's an unresolved question to surface, not a phrase to ship.
 
+## Model routing (cost discipline)
+
+Beyond the 12 code rules: which model does the work. Frontier capability is the expensive
+default, and the failure mode is not choosing badly — it is never choosing at all.
+
+**The default is Sonnet, and it is set in the global user settings — not in this repo.**
+`"model": "sonnet"` lives in `~/.claude/settings.json` on the machine you work from (on this
+setup: `C:\Users\Admin\.claude\settings.json`, the Windows desktop-app home, which is where
+**all** sessions actually run — the WSL2 `~/.claude/settings.json` is a vestige of an
+abandoned test install with zero recorded sessions and is deliberately left alone). It is
+recorded here because a global setting is invisible to the repo: without this line a future
+session, or a second machine, has no way to know the default was ever meant to be anything
+but Opus. If sessions are defaulting to Opus, that knob was never set there — set it.
+
+This is a deliberate split. The **setting** is a personal, per-machine cost preference tied to
+your usage limits; nobody clones the repo to inherit it, so it does not belong in project
+settings. The **policy below** is the shareable reasoning, so it is versioned here.
+
+**Escalate deliberately.** `/model opus` for design, architecture, ADRs, and judgment calls —
+work where being wrong is expensive and being slow is not. Everything else stays on the default.
+
+**Delegate the generation, keep the verification on main.** Hand bounded, mechanical work to a
+cheap general-purpose subagent (the Agent tool's `model` parameter — this does *not* require a
+named custom-agent layer; ADR-0003 stands):
+
+| delegate to a cheap subagent | keep on the main frontier thread |
+|---|---|
+| test generation | spec, architecture, ADRs |
+| mechanical refactors (tests as the check) | judgment calls |
+| codebase grep-and-summarize | **verification and acceptance checking** |
+| boilerplate scaffolding | |
+| fixture assembly | |
+| commit-message drafting | |
+| doc formatting | |
+| test-run summarizing | |
+
+**Verification is deliberately not routed.** It is the highest-risk target, and moving it to a
+cheaper model is the explicit revisit trigger in ADR-0006 — a separate decision, not a
+side effect of cost tuning.
+
+**Size floor: delegate bounded chunks only.** A two-line edit costs more to hand off than to do
+inline, because the handoff must carry context the main thread already holds. If briefing the
+subagent takes longer than doing the work, do the work.
+
+In fan-out workflow scripts, set `opts.model` per stage — deterministic stages do not need the
+frontier tier.
+
+**Cheap is not free.** A too-cheap model on a subtly-wrong subtask moves cost from tokens to
+your review time, and the token metrics will not show it. Judge a routing change by whether the
+delegated output held up under review, not by the token delta alone.
+
 ## What's NOT a rule
 
 These are common standards I've deliberately excluded from v1 — don't flag them as violations:
