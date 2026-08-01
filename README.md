@@ -51,10 +51,16 @@ Sub-targets: `npm run test:node`, `npm run test:sh`.
 ## Run-level observability
 
 ```sh
-npm run observe            # this project
-npm run observe -- --all   # every project, split per project
-npm run observe -- --json  # machine-readable
+npm run observe                      # this project
+npm run observe -- --all             # every project, split per project
+npm run observe -- --json            # machine-readable
+npm run observe -- --since=<sha|date> # before/after split with tier shares
 ```
+
+`--since` takes a commit-ish (resolved against this repo) or `YYYY-MM-DD`, and
+reports frontier / Sonnet / Haiku turn counts and shares on each side of the cutoff.
+Without it the report is a cumulative total, which cannot answer "did this change
+anything" — every turn ever recorded lands in one bucket.
 
 Summarises what agent runs actually did — tool distribution, per-turn token usage,
 model mix, API errors — by reading the traces Claude Code already writes to

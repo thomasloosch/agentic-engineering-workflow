@@ -26,6 +26,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const PROJECTS_DIR = path.join(os.homedir(), '.claude', 'projects');
 
@@ -52,6 +54,7 @@ const emptyTotals = () => ({
   sidechainTurns: 0,
   apiErrors: 0,
   unparsableLines: 0,
+  undatedTurns: 0,
   tokens: { input: 0, output: 0, cacheCreate: 0, cacheRead: 0 },
   models: {},
   tools: {},
@@ -59,8 +62,18 @@ const emptyTotals = () => ({
   lastSeen: null,
 });
 
-/** Fold raw JSONL lines into metrics. Pure — no IO, so it is directly testable. */
-export function aggregate(lines, acc = emptyTotals()) {
+/**
+ * Fold raw JSONL lines into metrics. Pure — no IO, so it is directly testable.
+ *
+ * opts.since / opts.until (epoch ms) bound which turns count, so a before/after
+ * delta is readable. #8's first acceptance criterion is "frontier share drops",
+ * which a cumulative total cannot answer — every turn ever recorded lands in one
+ * bucket. Shipping that criterion against a totals-only tool made it unverifiable
+ * by construction; this is the fix.
+ */
+export function aggregate(lines, acc = emptyTotals(), opts = {}) {
+  const bounded = typeof opts.since === 'number' || typeof opts.until === 'number';
+
   for (const line of lines) {
     if (!line) continue;
     let o;
@@ -78,6 +91,20 @@ export function aggregate(lines, acc = emptyTotals()) {
       if (!acc.firstSeen || o.timestamp < acc.firstSeen) acc.firstSeen = o.timestamp;
       if (!acc.lastSeen || o.timestamp > acc.lastSeen) acc.lastSeen = o.timestamp;
     }
+
+    // Window filter. An undated turn cannot be placed on either side of a cutoff,
+    // so it is excluded from BOTH halves — and counted, because dropping it
+    // silently would make the halves quietly fail to sum to the whole.
+    if (bounded) {
+      const t = o.timestamp ? Date.parse(o.timestamp) : NaN;
+      if (Number.isNaN(t)) {
+        if (o.type === 'assistant' && o.message) acc.undatedTurns++;
+        continue;
+      }
+      if (typeof opts.since === 'number' && t < opts.since) continue;
+      if (typeof opts.until === 'number' && t >= opts.until) continue;
+    }
+
     if (o.isApiErrorMessage) acc.apiErrors++;
     if (o.type !== 'assistant' || !o.message) continue;
 
@@ -103,7 +130,7 @@ export function aggregate(lines, acc = emptyTotals()) {
   return acc;
 }
 
-function readProject(dir) {
+function readProject(dir, opts = {}) {
   const acc = emptyTotals();
   let cwd = null;
   let files = [];
@@ -123,9 +150,70 @@ function readProject(dir) {
     acc.sessions++;
     const lines = raw.split('\n');
     if (!cwd) cwd = projectPathFrom(lines);
-    aggregate(lines, acc);
+    aggregate(lines, acc, opts);
   }
   return { ...acc, cwd };
+}
+
+// Tier split for the routing question (#8): which turns ran on the expensive tier.
+// Matched on the model id rather than a hardcoded list, so a new Opus/Sonnet/Haiku
+// release is classified correctly without editing this file.
+const TIERS = [
+  ['frontier', /opus|fable|mythos/i],
+  ['sonnet', /sonnet/i],
+  ['haiku', /haiku/i],
+];
+
+export function tierCounts(models) {
+  const out = { frontier: 0, sonnet: 0, haiku: 0, other: 0 };
+  for (const [id, n] of Object.entries(models)) {
+    const hit = TIERS.find(([, re]) => re.test(id));
+    out[hit ? hit[0] : 'other'] += n;
+  }
+  return out;
+}
+
+const share = (part, total) => (total ? `${((part / total) * 100).toFixed(1)}%` : '—');
+
+/** Before/after rendering for a cutoff run — the shape #8's criterion 1 needs. */
+export function formatDelta(rows, label) {
+  const out = [`Routing delta — cutoff ${label}`, ''];
+  for (const r of rows) {
+    const b = tierCounts(r.before.models);
+    const a = tierCounts(r.after.models);
+    const bt = b.frontier + b.sonnet + b.haiku + b.other;
+    const at = a.frontier + a.sonnet + a.haiku + a.other;
+    out.push(`── ${r.path}`);
+    out.push(`   ${'turns'.padEnd(10)} before ${String(bt).padStart(6)}      after ${String(at).padStart(6)}`);
+    out.push(`   ${'frontier'.padEnd(10)} ${String(b.frontier).padStart(6)} ${share(b.frontier, bt).padStart(7)}  ${String(a.frontier).padStart(6)} ${share(a.frontier, at).padStart(7)}`);
+    out.push(`   ${'sonnet'.padEnd(10)} ${String(b.sonnet).padStart(6)} ${share(b.sonnet, bt).padStart(7)}  ${String(a.sonnet).padStart(6)} ${share(a.sonnet, at).padStart(7)}`);
+    out.push(`   ${'haiku'.padEnd(10)} ${String(b.haiku).padStart(6)} ${share(b.haiku, bt).padStart(7)}  ${String(a.haiku).padStart(6)} ${share(a.haiku, at).padStart(7)}`);
+    const undated = r.before.undatedTurns + r.after.undatedTurns;
+    if (undated) out.push(`   NOTE       ${undated} undated turn(s) in neither half`);
+    out.push('');
+  }
+  out.push('A cutoff only splits recorded turns — it cannot show whether delegated');
+  out.push('output held up under review. Judge that separately.');
+  return out.join('\n');
+}
+
+// Accept a date or a git commit-ish. A sha is resolved against THIS repo, which is
+// the common case (comparing against the commit that changed the config).
+function resolveCutoff(value) {
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+    const t = Date.parse(value.length === 10 ? `${value}T00:00:00Z` : value);
+    if (!Number.isNaN(t)) return { ms: t, label: value };
+  }
+  try {
+    const iso = execFileSync('git', ['show', '-s', '--format=%cI', value], {
+      cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    const t = Date.parse(iso);
+    if (!Number.isNaN(t)) return { ms: t, label: `${value} (${iso})` };
+  } catch { /* fall through to the error below */ }
+  return null;
 }
 
 const n = (x) => x.toLocaleString('en-US');
@@ -191,6 +279,16 @@ function main(argv) {
   }
   const all = argv.includes('--all');
   const asJson = argv.includes('--json');
+  const sinceArg = (argv.find((a) => a.startsWith('--since=')) || '').slice(8);
+
+  let cutoff = null;
+  if (sinceArg) {
+    cutoff = resolveCutoff(sinceArg);
+    if (!cutoff) {
+      console.error(`--since=${sinceArg} is neither a date (YYYY-MM-DD) nor a commit in this repo`);
+      return 1;
+    }
+  }
 
   let slugs;
   if (all) {
@@ -203,6 +301,22 @@ function main(argv) {
       return 1;
     }
     slugs = [slug];
+  }
+
+  if (cutoff) {
+    const rows = slugs
+      .map((s) => {
+        const dir = path.join(PROJECTS_DIR, s);
+        const before = readProject(dir, { until: cutoff.ms });
+        const after = readProject(dir, { since: cutoff.ms });
+        return { project: s, path: before.cwd || after.cwd || s, before, after };
+      })
+      .filter((r) => r.before.assistantTurns > 0 || r.after.assistantTurns > 0)
+      .sort((a, b) => b.after.assistantTurns - a.after.assistantTurns);
+
+    if (rows.length === 0) { console.error('no sessions found'); return 1; }
+    console.log(asJson ? JSON.stringify(rows, null, 2) : formatDelta(rows, cutoff.label));
+    return 0;
   }
 
   const projects = slugs

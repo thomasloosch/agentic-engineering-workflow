@@ -77,6 +77,51 @@ describe('#5 — aggregate over transcript lines', () => {
   });
 });
 
+describe('#8 — a cutoff splits turns into before/after so a delta is readable', () => {
+  // Criterion 1 of #8 is "frontier share drops", which a cumulative total cannot
+  // answer: every turn ever recorded is in one bucket. Shipping that criterion
+  // against a tool that only emits totals made it unverifiable by construction.
+  const early = assistant('opus-5', usage(10, 1), ['Bash'], '2026-07-01T00:00:00.000Z');
+  const late = assistant('sonnet-5', usage(20, 2), ['Read'], '2026-07-31T00:00:00.000Z');
+  const CUT = Date.parse('2026-07-15T00:00:00.000Z');
+
+  test('since keeps only turns at or after the cutoff', () => {
+    const a = aggregate([early, late], undefined, { since: CUT });
+    assert.deepEqual(a.models, { 'sonnet-5': 1 });
+    assert.equal(a.tokens.input, 20);
+  });
+
+  test('until keeps only turns before the cutoff', () => {
+    const a = aggregate([early, late], undefined, { until: CUT });
+    assert.deepEqual(a.models, { 'opus-5': 1 });
+    assert.equal(a.tokens.input, 10);
+  });
+
+  test('the two halves partition the whole — nothing double-counted or dropped', () => {
+    const whole = aggregate([early, late]);
+    const before = aggregate([early, late], undefined, { until: CUT });
+    const after = aggregate([early, late], undefined, { since: CUT });
+    assert.equal(before.assistantTurns + after.assistantTurns, whole.assistantTurns);
+    assert.equal(before.tokens.input + after.tokens.input, whole.tokens.input);
+  });
+
+  test('a turn with no timestamp is excluded from both halves, and counted', () => {
+    // Excluding it silently would make the halves quietly not sum to the whole.
+    const undated = JSON.stringify({
+      type: 'assistant', message: { model: 'opus-5', usage: usage(5, 5), content: [] },
+    });
+    const a = aggregate([undated], undefined, { since: CUT });
+    assert.equal(a.assistantTurns, 0);
+    assert.equal(a.undatedTurns, 1);
+  });
+
+  test('no cutoff means no filtering — the default stays a plain total', () => {
+    const a = aggregate([early, late]);
+    assert.equal(a.assistantTurns, 2);
+    assert.equal(a.undatedTurns, 0);
+  });
+});
+
 describe('#5 — output carries metrics only, never content', () => {
   // The transcripts hold full conversation text. A summariser that prints any of it
   // is a leak waiting to be pasted somewhere, so this is asserted, not assumed.
