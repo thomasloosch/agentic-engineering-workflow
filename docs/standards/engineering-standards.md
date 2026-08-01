@@ -125,6 +125,13 @@ output," never bare "write X". A delegated code sample that was never executed r
 correct and fails on first use — a silent error on your side of the line instead of a loud one
 on the subagent's, where it would have been cheap.
 
+**But the falsifier has to actually falsify.** A subagent can return a test that passes because
+it asserts nothing — the mutation-test problem (verification checklist, catch 3) one level out:
+there, a vacuous guard; here, a vacuous check on delegated work. So delegating the check does
+not zero your review, it *shrinks* it to a single question — **did the check bite?** — instead
+of re-deriving the whole output. Ask for the failing case too: "run it, and show me it fails
+when X is wrong."
+
 **Size floor: delegate bounded chunks only.** A two-line edit costs more to hand off than to do
 inline, because the handoff must carry context the main thread already holds. If briefing the
 subagent takes longer than doing the work, do the work.

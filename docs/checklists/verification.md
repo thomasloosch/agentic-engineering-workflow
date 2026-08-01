@@ -64,6 +64,26 @@ symptom.
    leaves the script running in the previous directory). Enforcement is deliberately
    **deferred, not built** — one incident means record the convention, not build a
    linter for tests touching `.git`. Build only if it recurs (YAGNI).
+7. **Validate acceptance criteria against the measuring instrument, at spec time** —
+   an AC the certifying tool cannot observe is **unsatisfiable**, not merely unmet, and
+   no amount of good execution will close it. Before accepting a criterion, ask: what
+   reads this, and can it actually see the thing? Three instances in one slice (#8),
+   all authored by the same hand that then tried to satisfy them:
+   - *"frontier share drops"* — measured by a tool that emitted only cumulative totals,
+     so a share **change** was unreadable by construction (fixed: `observe --since`).
+   - *"Haiku stops being zero"* — subagent turns are recorded nowhere (`isSidechain` is
+     0 across every project), so a delegated cheap-model run contributes zero model
+     turns. Unsatisfiable however well the routing worked; the honest proxy is the
+     parent-side delegation count.
+   - *"the setting is applied"* — verified as *present in the file*, which is not the
+     same claim as *in effect*. This is catch 1 wearing different clothes: the
+     committed artifact was right and the running reality was not.
+
+   This is a **new parent, not a special case of catch 1**. Catch 1 is about checking
+   the right artifact *after* the work; this is about whether the criterion is
+   observable *at all*, decided before the work starts. The failure mode is upstream
+   and cheaper to fix there — a spec review that asks "which tool reads this?" catches
+   all three for free.
 
 ---
 
