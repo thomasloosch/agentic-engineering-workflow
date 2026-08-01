@@ -105,6 +105,26 @@ named custom-agent layer; ADR-0003 stands):
 cheaper model is the explicit revisit trigger in ADR-0006 — a separate decision, not a
 side effect of cost tuning.
 
+**The membership test — delegate work that has a mechanical falsifier.** The table above lists
+classes; this is what decides whether something belongs in the left column. If the only way to
+find out the output is wrong is to read it carefully, you have not delegated the work — you
+have moved it from your hands to your eyes and added a briefing cost on top.
+
+Run a candidate through it: test generation and mechanical refactors are checked by the suite;
+fixture assembly by shape assertions; doc formatting and commit messages are mechanical or
+trivially cheap to eyeball. Grep-and-summarize qualifies **only for specific claims** ("these
+seven files export X"), not general ones ("these files are identical") — a generalisation has
+no falsifier and is where this failed in practice. Distilling a canonical pattern, writing an
+ADR, and deciding what is essential all fail the test: the question *is* the judgment.
+
+Beware tasks that fan out cleanly — parallelism is not mechanicalness, and a job that splits
+into three tidy chunks can still be three judgment calls.
+
+**Delegate the check with the generation.** Brief for "write X **and run it**, report the
+output," never bare "write X". A delegated code sample that was never executed returns looking
+correct and fails on first use — a silent error on your side of the line instead of a loud one
+on the subagent's, where it would have been cheap.
+
 **Size floor: delegate bounded chunks only.** A two-line edit costs more to hand off than to do
 inline, because the handoff must carry context the main thread already holds. If briefing the
 subagent takes longer than doing the work, do the work.
