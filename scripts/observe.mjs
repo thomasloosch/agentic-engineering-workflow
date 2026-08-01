@@ -164,6 +164,20 @@ const TIERS = [
   ['haiku', /haiku/i],
 ];
 
+/**
+ * Delegation count, from the PARENT transcript's tool calls.
+ *
+ * Subagent turns are not recorded anywhere: `isSidechain` is 0 across every
+ * project, and no transcript exists outside ~/.claude/projects. So a delegated
+ * Haiku run contributes zero model turns and is invisible to a tier count —
+ * which made "Haiku stops being zero" unsatisfiable as written, not merely unmet.
+ * The Agent/Task tool call in the parent IS recorded, so it is the honest proxy
+ * for "delegation happened".
+ */
+export function delegationCount(tools) {
+  return (tools.Agent || 0) + (tools.Task || 0);
+}
+
 export function tierCounts(models) {
   const out = { frontier: 0, sonnet: 0, haiku: 0, other: 0 };
   for (const [id, n] of Object.entries(models)) {
@@ -188,11 +202,16 @@ export function formatDelta(rows, label) {
     out.push(`   ${'frontier'.padEnd(10)} ${String(b.frontier).padStart(6)} ${share(b.frontier, bt).padStart(7)}  ${String(a.frontier).padStart(6)} ${share(a.frontier, at).padStart(7)}`);
     out.push(`   ${'sonnet'.padEnd(10)} ${String(b.sonnet).padStart(6)} ${share(b.sonnet, bt).padStart(7)}  ${String(a.sonnet).padStart(6)} ${share(a.sonnet, at).padStart(7)}`);
     out.push(`   ${'haiku'.padEnd(10)} ${String(b.haiku).padStart(6)} ${share(b.haiku, bt).padStart(7)}  ${String(a.haiku).padStart(6)} ${share(a.haiku, at).padStart(7)}`);
+    out.push(`   ${'delegations'.padEnd(10)} ${String(delegationCount(r.before.tools)).padStart(6)}          ${String(delegationCount(r.after.tools)).padStart(6)}`);
     const undated = r.before.undatedTurns + r.after.undatedTurns;
     if (undated) out.push(`   NOTE       ${undated} undated turn(s) in neither half`);
     out.push('');
   }
-  out.push('A cutoff only splits recorded turns — it cannot show whether delegated');
+  out.push('Subagent turns are NOT recorded — a delegated Haiku run contributes zero');
+  out.push('model turns, so the tier rows measure MAIN-THREAD routing only. The');
+  out.push('delegations row (parent-side Agent/Task calls) is what shows lever B.');
+  out.push('');
+  out.push('And a cutoff only splits recorded turns — it cannot show whether delegated');
   out.push('output held up under review. Judge that separately.');
   return out.join('\n');
 }

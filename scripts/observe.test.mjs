@@ -1,7 +1,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { aggregate, projectPathFrom, formatReport } from './observe.mjs';
+import { aggregate, projectPathFrom, formatReport, delegationCount } from './observe.mjs';
 
 // Line shapes copied from real transcripts (~/.claude/projects/<slug>/*.jsonl), so
 // the parser is pinned against what Claude Code actually writes rather than an
@@ -119,6 +119,28 @@ describe('#8 — a cutoff splits turns into before/after so a delta is readable'
     const a = aggregate([early, late]);
     assert.equal(a.assistantTurns, 2);
     assert.equal(a.undatedTurns, 0);
+  });
+});
+
+describe('#8 — delegation is counted from the parent, since subagent turns are not recorded', () => {
+  // Measured: isSidechain is 0 across every project and no transcript exists outside
+  // ~/.claude/projects, so a delegated Haiku run contributes ZERO model turns. That
+  // made "Haiku stops being zero" unsatisfiable as written. The parent-side Agent
+  // call is recorded, so it is the honest proxy for "delegation happened".
+  test('counts Agent and Task tool calls', () => {
+    assert.equal(delegationCount({ Agent: 3, Bash: 50 }), 3);
+    assert.equal(delegationCount({ Task: 2, Agent: 1 }), 3);
+  });
+
+  test('is zero when nothing was delegated — not undefined', () => {
+    assert.equal(delegationCount({ Bash: 10 }), 0);
+    assert.equal(delegationCount({}), 0);
+  });
+
+  test('a delegating turn registers a delegation but no cheap-tier model turn', () => {
+    const a = aggregate([assistant('opus-5', usage(1, 1), ['Agent', 'Agent'])]);
+    assert.equal(delegationCount(a.tools), 2);
+    assert.deepEqual(a.models, { 'opus-5': 1 }); // the subagents' own turns are absent
   });
 });
 
