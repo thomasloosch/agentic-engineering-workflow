@@ -49,6 +49,13 @@ patterns clarify.
 - **Separate commits by intent; explicit path staging, never git add .**
 - **Start CC in the repo it's working on.** Cross-repo work from the wrong
   working dir causes path confusion and stray writes. (Stage-2 operational)
+- **Premise-check your own plan's dependency graph, not just the inherited
+  premises.** Having premise-checked nine filed items against the code, the
+  build order proposed for them still had a dependency backwards — #17 slice 2
+  propagates #19's artifact, so #19 must precede #17, but the order given was
+  #17 -> #19. The discipline was applied outward and not to the plan it
+  produced. Ask of every ordering: does step N consume an artifact step N+1
+  creates? (2026-08-13 gate-1, caught by Thomas)
 
 ## Failure modes to watch
 - **NaN/corrupt-reads-as-healthy.** A guard that passes silently on corrupt
