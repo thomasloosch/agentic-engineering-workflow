@@ -148,7 +148,16 @@ individual project repos. Separate from product work (Sovary); used to build it.
 - NEXT: **The harness program — #16 → #19 → #17 → #18 → #24.** Gate-1 specs for
   #17/#18/#19 APPROVED 2026-08-13. Build in that order; the specs are in
   docs/specs/ and carry their gate decisions at the top.
-  - **#16 (bug, first)** — a second `bootstrap-project.sh` run empties the asset
+  - **#16 — CLOSED 2026-08-13 (48a381d), CI green.** Provenance now comes from the
+    manifest, not from presence on disk; the manifest is rebuilt from the union of
+    repo assets and prior entries, and an override keeps its ORIGINAL recorded hash.
+    Sync gained fail-closed-on-empty, an UNVERIFIED class for the new `unknown`
+    provenance sentinel, and the ADD class (#25's down half).
+    `scripts/lib/asset-list.sh` is now the single shared definition of what gets
+    propagated — installer and detector read the same list. jobs-radar is
+    deliberately NOT repaired yet; that is #17 slice 4. Dry run against it now names
+    the stale standards doc as UNTRACKED and both missing guards as ADD.
+    Was: a second `bootstrap-project.sh` run empties the asset
     manifest (37 entries -> 0, reproduced on a mktemp fixture) and
     `sync-project-assets.sh` then reports a clean bill of health while tracking
     nothing. Fail-open. This is why jobs-radar's `.claude/engineering-standards.md`
