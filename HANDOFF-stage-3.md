@@ -1,3 +1,11 @@
+> **SUPERSEDED 2026-08-13 — do not start this.** The Sovary calendar strip-down is retired as the
+> workflow acceptance test; issue #18 (the semver harness, spec approved at Gate 1) replaces it.
+> Reason: parity-with-Sovary-1 puts the scope judgment *inside* the oracle, so the falsifier is
+> partly authored by the thing under test, and parity cannot measure generalisation. Kept for its
+> still-valid parts, all carried into #18: the pre-declared metrics, the "Thomas does not pre-empt"
+> rule, the two-halves delegation watch, and the six-for-six all-human baseline. The environment
+> mechanics in the last section remain accurate. `~/familienkalender` is released.
+
 # HANDOFF — Stage 3: Sovary calendar strip-down as the workflow acceptance test
 
 Paste this into a fresh conversation to start Stage 3. The Day-1 paper-adoption

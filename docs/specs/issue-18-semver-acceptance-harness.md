@@ -1,8 +1,29 @@
 # Spec — #18 Semver acceptance harness (the workflow's end-to-end test)
 
-**Issue:** #18 · **Status:** Gate 1 — awaiting approval · **Date:** 2026-08-12
+**Issue:** #18 · **Status:** **Gate 1 APPROVED 2026-08-13** · **Drafted:** 2026-08-12
 **Blocked by:** #17 (the harness under test), #19 (the measuring instrument)
-**Replaces:** `HANDOFF-stage-3.md` — the Sovary calendar strip-down
+**Replaces:** `HANDOFF-stage-3.md` — the Sovary calendar strip-down (retired, not run alongside)
+**Build order:** #16 → #19 → #17 → **#18** → #24
+
+## Gate 1 decisions (2026-08-13)
+
+1. **Stage-3 replacement holds.** Sovary parity's oracle contains the scope judgment it was meant
+   to falsify, so it is partly authored by the thing under test; a public corpus is not. Sovary is
+   retired, **not** run alongside.
+2. **Corpus: node-semver's fixtures, accepted with caveats. Do NOT precondition on a
+   language-agnostic official corpus** — an official machine-readable semver conformance suite
+   almost certainly does not exist, and preconditioning on one would stall this test on
+   unavailability, which is the exact Stage-3 failure mode being escaped. The property that makes
+   validation real is that the fixtures are **independent of the build** — nobody here wrote them.
+   Two caveats recorded in §4a.
+3. **Build from the semver.org spec text, not node-semver's source.** Reading the reference
+   implementation is coding to the oracle and destroys the measurement.
+4. **Thomas-side split — accepted.** He fetches, splits by hash-mod-2, commits only the visible
+   half. The manual step *is* the integrity guarantee.
+5. **Scope — accepted as specified.**
+6. **Stage-3 documents corrected now.** Approving this issue decides the retirement, so marking
+   `HANDOFF-stage-3.md` superseded and repointing `current-state.md`'s NEXT is executing the
+   decision, not presuming it. The general reconcile mechanism remains #22.
 
 ---
 
@@ -107,18 +128,41 @@ Honour-system exclusion is not a mechanism. The construction:
    prerelease case and no range case, or the reverse, and the held-out set would measure coverage
    rather than generalisation.
 
-**Open at Gate 1 — which corpus.** This is the load-bearing external dependency and I will not
-assert a suite exists without checking it. The candidate I am most confident about is
-**node-semver's own test fixtures** (`npm/node-semver`, ISC-licensed, machine-readable
-`[range, version, expected]` tuples covering exactly the fiddly cases above). It is an
-implementation's test suite rather than an official conformance suite, which is a real caveat: it
-encodes node-semver's interpretation, including places where it deviates from or extends
-semver.org. Alternatives to check before the build: any language-agnostic conformance corpus, or
-the Rust/Go implementations' fixture sets for cross-checking. **Gate-1 requirement: the corpus is
-identified, licence-checked, and its provenance recorded in the probe repo before the build
-starts** — and if no suitable corpus turns out to exist, the held-out half of this test is not
-salvageable by writing one here (a corpus authored by the same hand is not an external oracle),
-and the run degrades to internal-verification-only with that limitation stated.
+## 4a. The corpus, and the two caveats on what held-out green means
+
+**Decided at Gate 1: node-semver's own test fixtures** (`npm/node-semver`, ISC-licensed,
+machine-readable `[range, version, expected]` tuples covering exactly the fiddly cases in §2).
+Licence-checked and provenance recorded in the probe repo before the build starts. The property
+that earns it the job is independence: nobody in this program wrote it.
+
+**Caveat 1 — implementation, not specification.** It encodes node-semver's interpretation,
+including places where that extends or deviates from semver.org. A held-out failure therefore has
+two possible readings — the build is wrong, or the build is right and node-semver is opinionated —
+and each held-out failure must be adjudicated against the spec text before being logged as a
+defect. Adjudication is a `human` judgment; log it as such.
+
+**Caveat 2 — the corpus may be memorised, and this softens the generalisation number.**
+node-semver is one of the most widely deployed packages in existence, so its behaviour is very
+likely present in training data. A build agent can therefore pass held-out cases by **recall**
+rather than by deriving them from the spec. This is not a reason to abandon the split, but it
+means the two results have different strengths:
+
+- **Self-catch ratio (primary) — robust to this.** A defect is caught by whoever caught it,
+  regardless of where the knowledge that surfaced it came from. Memorisation does not corrupt the
+  who-caught column.
+- **Generalisation (secondary) — weakened.** Held-out green is consistent with "generalised" *and*
+  with "recalled," and this test cannot separate them. Report it with the caveat attached rather
+  than as a clean generalisation claim.
+
+**Not blocking, and not fixed by trying harder here.** If the generalisation number ever becomes
+the number that matters, the clean answer is a second probe over a **less-memorised
+specification** — an obscure or recent format with a public conformance corpus and little training
+presence. Recorded as the follow-on, not built now.
+
+**Reading node-semver's source is out of bounds during the build** (Gate-1 decision 3). Build from
+the semver.org spec text. The fixtures are consumed as opaque `[input, expected]` tuples; the
+implementation that produced them is not read. Coding to the oracle would collapse both results at
+once.
 
 ## 5. The measurement — the actual deliverable
 
@@ -143,10 +187,11 @@ turn share. Do not restate the unsatisfiable version of this criterion.
 
 | # | Criterion | Instrument |
 |---|---|---|
-| 1 | Probe repo reaches green internal tests + guards + lint through the documented flow, both gates exercised as real decision points | CI run on the probe repo; gate decisions recorded in #21's log |
-| 2 | Corpus identified, licence-checked, provenance recorded, split rule committed **before** the build | file present in the probe repo at the pre-build commit |
+| 1 | Probe repo reaches green internal tests + guards + lint through the documented flow, both gates exercised as real decision points | CI run on the probe repo; gate decisions recorded by hand until #21 exists |
+| 2 | Corpus provenance + licence + split rule committed **before** the build | file present in the probe repo at the pre-build commit |
 | 3 | Held-out exclusion verifiably held | `git log --diff-filter=A` on the held-out path + no upstream fetch in the build |
-| 4 | Held-out pass rate reported — measured and explained, not required to be 100% | the validation test run |
+| 3a | node-semver's **source** was not read during the build | no fetch/read of the package source in the transcript; the fixtures are consumed as opaque tuples |
+| 4 | Held-out pass rate reported — measured and explained, not required to be 100% — **with both §4a caveats attached**, and each held-out failure adjudicated against the spec text before being logged as a defect | the validation test run + the adjudication record |
 | 5 | Catch-log has every defect with who-caught + error-class; agent-self share reported against six-for-six | the catch-log file, countable as-is |
 | 6 | The building agent's `verification.md` self-application is reported item by item | the build's own review output |
 | 7 | Delegation count + any falsifier-less delegation reported | parent-side count; `npm run observe --since=<pre-build sha>` for the model-share context |
@@ -169,8 +214,14 @@ fourth unsatisfiable AC.
 
 ## 8. Risks
 
-- **No suitable external corpus exists.** The one risk that can invalidate half the test. Named in
-  §4 with its degradation path; must be resolved at Gate 1, not discovered mid-build.
+- **~~No suitable external corpus exists.~~** Resolved at Gate 1 — node-semver's fixtures, with the
+  §4a caveats. Superseded by the risk below.
+- **Held-out green is recall, not generalisation** (§4a caveat 2). Unfixable within this probe. The
+  primary measurement (self-catch ratio) is robust to it; the secondary one is reported with the
+  caveat attached. A less-memorised specification is the clean follow-on if that number ever
+  becomes the one that matters.
+- **A held-out failure is node-semver being opinionated, not a defect** (§4a caveat 1). Mitigation:
+  adjudicate against the spec text before logging, and log the adjudication as a `human` catch.
 - **The result is uncomfortable.** A low agent-self share means the harness has not paid off yet.
   That is a valid, useful result and reporting it honestly is the point. The failure mode to guard
   against is quietly reclassifying human catches as gate catches.
@@ -182,16 +233,11 @@ fourth unsatisfiable AC.
 
 ---
 
-## Gate 1 questions
+## Gate 1 — APPROVED 2026-08-13
 
-1. **Does the Stage-3 replacement hold?** Specifically: is the oracle argument (§0) enough to
-   retire the Sovary parity test rather than run both?
-2. **The corpus.** Accept node-semver's fixtures as the oracle with its "implementation, not
-   official spec" caveat recorded — or should identifying a genuinely language-agnostic corpus be a
-   precondition before this issue starts?
-3. **The Thomas-side split (§4).** It requires you to fetch and split the corpus yourself before
-   the build. Acceptable, or do you want a different mechanism for keeping the held-out set out?
-4. **Scope of the library** (parse / compare / satisfies, ranges as listed) — big enough to
-   produce defects worth counting, small enough to finish?
+All four questions answered in §"Gate 1 decisions" at the top. Proceed after **#16 → #19 → #17**
+have landed: setup, then the flow, then validation, then the report.
 
-On approval, and after #17 and #19 land: setup, then the flow, then validation, then the report.
+**First action when this issue starts, and it is Thomas's:** fetch the corpus, apply the
+hash-mod-2 split, commit the visible half plus the split rule and provenance. The build does not
+begin until that commit exists — it is the pre-build boundary AC2 and AC3 are measured against.

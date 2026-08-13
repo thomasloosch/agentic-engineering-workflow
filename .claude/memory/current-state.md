@@ -3,7 +3,7 @@
 The hand-maintained orientation / handoff doc for this repo — read it at session
 start to orient. There is no /start-session ritual anymore; THIS file is the
 orientation. Updated by hand as work lands.
-Last updated: 2026-07-31
+Last updated: 2026-08-13
 
 ## What this repo is
 Meta-tooling for a solo agentic engineering workflow: shared skills, agents,
@@ -145,20 +145,43 @@ individual project repos. Separate from product work (Sovary); used to build it.
   production exercise of the agent system; surfaced workflow findings W1-W5.
 
 ## In flight / next
-- NEXT: **Stage 3 — the workflow's end-to-end acceptance test.** Strip Sovary
-  down to calendar-only (`familienkalender`) and run the build through this
-  workflow, to measure whether the harness actually pays off. Sovary-1
-  (as-is) is the ORACLE; parity with its calendar behaviour is the falsifier.
-  Metrics to capture up front: parity, self-catch ratio (scaffolding-caught vs
-  Thomas-caught defects, benchmarked against the #7 session's six-for-six
-  all-human catch rate), and friction (log in docs/metrics/v1-success-metrics.md,
-  though that file's framing predates this reorg — /health-check, the
-  escalation ladder, and lessons/patterns.md self-learning are all retired; only
-  its friction-log table and weekly-log mechanics are still usable as-is).
-  Thomas must NOT pre-empt findings — log who-caught-what as it happens, or the
-  self-catch-ratio measurement is contaminated. Carrier doc: `HANDOFF-stage-3.md`
-  (repo root) — paste it into a fresh conversation to start; spec the test at
-  its own gate-1 before touching the strip build.
+- NEXT: **The harness program — #16 → #19 → #17 → #18 → #24.** Gate-1 specs for
+  #17/#18/#19 APPROVED 2026-08-13. Build in that order; the specs are in
+  docs/specs/ and carry their gate decisions at the top.
+  - **#16 (bug, first)** — a second `bootstrap-project.sh` run empties the asset
+    manifest (37 entries -> 0, reproduced on a mktemp fixture) and
+    `sync-project-assets.sh` then reports a clean bill of health while tracking
+    nothing. Fail-open. This is why jobs-radar's `.claude/engineering-standards.md`
+    is stale and NOT in its manifest (missing #8's model-routing section, ADR-0001's
+    Rule-10 reframe, Rule 2's verification.md link), and why the import guard and
+    git secret guard never reached it at all. Lands standalone and verified, before
+    #17 — do not build more propagation through a broken propagation mechanism.
+  - **#19 catch-log** — per-project defect log (what / who-caught / error-class),
+    3-value closed who-caught set, rule-of-three promotion. Precedes #17 because
+    #17 slice 2 propagates it.
+  - **#17 full-harness bootstrap** — propagate the whole reference control set AND
+    the learning artifacts; emitted owner-run `setup-project.sh` does the wiring so
+    bootstrap never edits package.json.
+  - **#18 semver acceptance harness** — the end-to-end test. Fresh repo, bootstrapped,
+    taken PRD -> spec -> gate 1 -> build -> gate 2, validated against a public
+    conformance corpus split visible/held-out.
+  - **#24** — instrument judgment-class verification, gated on #18's measured tally.
+- **STAGE 3 IS RETIRED.** The Sovary calendar strip-down (`familienkalender`) is NOT
+  the acceptance test — its parity oracle contained the scope judgment it was meant to
+  falsify, and parity cannot measure generalisation. `HANDOFF-stage-3.md` is marked
+  superseded; `~/familienkalender` is released. What carried into #18: the pre-declared
+  metrics, the **"Thomas does not pre-empt"** rule (log who-caught-what as it happens or
+  the measurement is contaminated), the two-halves delegation watch, and the #7 session's
+  six-for-six all-human catch rate as the benchmark. Friction still logs to
+  docs/metrics/v1-success-metrics.md, whose framing predates the Part-4 reorg — only its
+  friction-log table and weekly-log mechanics are usable as-is.
+- Also filed, not yet built: #20 (regression-case-before-fix, proposed standards
+  addition), #21 (gate-rejection logging), #22 (memory reconcile — build-ready after
+  the program above; this very section is its evidence), #23 (PRD/spec front-end —
+  PARKED, revisit when the catch-log records premise-drift or unobservable-AC at
+  gate 1 twice; W1 landed in to-issues as f7bcf03), #25 (cross-project sync +
+  up-promotion — down-direction gate OPEN and folded into #16/#17, up-direction
+  parked).
 - Parked (all low priority, YAGNI-gated — do not build speculatively; each has
   a named revisit trigger):
   - #9 Examples as an explicit context type — distillation turned out to be

@@ -1,7 +1,33 @@
 # Spec — #19 The catch-log
 
-**Issue:** #19 · **Status:** Gate 1 — awaiting approval · **Date:** 2026-08-12
-**Blocks:** #18 (its measuring instrument) · **Propagated by:** #17 · **Feeds:** #20, #21, #24, #25
+**Issue:** #19 · **Status:** **Gate 1 APPROVED 2026-08-13** · **Drafted:** 2026-08-12
+**Blocks:** #17 (slice 2 propagates this artifact), #18 (its measuring instrument)
+**Feeds:** #20, #21, #24, #25
+**Build order:** #16 → **#19** → #17 → #18 → #24
+
+## Gate 1 decisions (2026-08-13)
+
+1. **Who-caught boundary — accepted as drawn.** A red test is `automatic-gate`, never
+   `agent-self`. `agent-self` means the agent *reasoned its way to the catch before any gate
+   fired* — that is the column measuring whether propagated learning changed behaviour. Blurring
+   it makes #18's headline number meaningless.
+2. **Threshold of three — kept, not weakened to two.** Standard 7's logic transfers: two instances
+   can be coincidence, the third is where the shape becomes legible. Few builds means promotions
+   are rare, which is the correct outcome — rare-and-real beats a standards doc filling with
+   under-validated entries.
+3. **One file, not two — #21 stays out for now.** The countable three-value set is this artifact's
+   load-bearing property (AC5: the ratio must be computable from the file alone). Gate rejections
+   are a different axis — a gate-1 rejection is really a `human` catch with a location — and
+   folding them in now risks countability for no proven gain. Revisit after #18 has run and the fit
+   can be judged against real rows.
+4. **50-row cap — accepted.** A number with an archival rule is the point; adjust if it proves
+   wrong.
+
+**Ordering note (corrected at Gate 1).** This issue precedes #17, because #17 slice 2 propagates
+this artifact and cannot propagate what does not exist. The consequence for AC2 below: this issue
+builds the artifact, the schema, the rule, and the seeding; **AC2 (propagation) closes when #17
+lands**, not here. Stated explicitly so the build does not stall on an apparent circular
+dependency.
 
 ---
 
@@ -147,7 +173,7 @@ demonstration required by AC4:
 | # | Criterion | Instrument |
 |---|---|---|
 | 1 | `catch-log.md` exists with the schema, the closed who-caught set, and the seeded legend | the file |
-| 2 | Propagated by bootstrap into a fresh project (skeleton + legend, no rows) and manifest-recorded | #17's fixture; grep the manifest |
+| 2 | Propagated by bootstrap into a fresh project (skeleton + legend, no rows) and manifest-recorded — **closes with #17, not here** | #17's fixture; grep the manifest |
 | 3 | Promotion rule + threshold + cap + archival rule written in the file itself | the file — the rule travels with the log or it doesn't travel |
 | 4 | Seeded: #16's row, the six backfilled `human` rows, and one worked promotion | the file + the promotion target's diff |
 | 5 | The self-catch ratio is computable **from the file alone**, by counting | count the who-caught column; no external context needed |
@@ -179,17 +205,8 @@ file, the instrument has failed at the one job that makes #18's headline AC sati
 
 ---
 
-## Gate 1 questions
+## Gate 1 — APPROVED 2026-08-13
 
-1. **The three-value who-caught set**, with a red test counted as `automatic-gate` rather than
-   `agent-self`. That boundary determines what #18's headline number means — agree with where it
-   is drawn?
-2. **Threshold of three** (borrowed from Standard 7), or do you want two given how few builds there
-   are to accumulate rows?
-3. **One file or two.** #21 (gate-rejection logging) proposes reusing this schema with `gate-1` /
-   `gate-2` as who-caught values rather than a second log. Fold it in from the start, or keep this
-   scoped to build defects and decide later?
-4. **The 50-row cap** — right order of magnitude for a solo two-project system?
-
-On approval: build the file + legend + rule, seed it per §6, wire it into #17's propagation, then
-#18 can start.
+All four questions answered in §"Gate 1 decisions" at the top. Proceed after **#16** has landed:
+build the file + legend + promotion rule, seed it per §6 (including the worked promotion), and
+leave AC2 open for #17 to close.

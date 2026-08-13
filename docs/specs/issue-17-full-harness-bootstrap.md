@@ -1,7 +1,27 @@
 # Spec — #17 Full-harness bootstrap, including the learning artifacts
 
-**Issue:** #17 · **Status:** Gate 1 — awaiting approval · **Date:** 2026-08-12
-**Blocked by:** #16 (manifest fail-open) · **Blocks:** #18, #19 propagation
+**Issue:** #17 · **Status:** **Gate 1 APPROVED 2026-08-13** · **Drafted:** 2026-08-12
+**Blocked by:** #16 (manifest fail-open, lands standalone first), #19 (the catch-log artifact
+slice 3 propagates) · **Blocks:** #18
+**Build order:** #16 → #19 → **#17** → #18 → #24
+
+## Gate 1 decisions (2026-08-13)
+
+1. **D1 two-script split — accepted.** It satisfies the no-edit-package.json default: bootstrap
+   copies and records, the emitted `setup-project.sh` (owner-run, refuse-on-conflict, prints its
+   diff) is the only thing that touches `package.json`.
+2. **D2 `.claude/checklists/` — accepted, with one addition.** Every propagated copy carries a
+   header marking it a **mirror**, naming the canonical URL. The manifest keeps the mirror honest
+   against the repo; the marker keeps a *human* from becoming the drift source by editing a mirror
+   they took for the original. Applied to `verification.md` and `code-review.md`; the catch-log is
+   **not** a mirror — it is project-owned data with a propagated skeleton, so it gets the schema
+   and legend, not a mirror header.
+3. **AC9 mutation check — kept, non-negotiable.** A propagation suite that stays green with the
+   propagation stubbed out is vacuous. Dropping it would contradict catch 3 in the same document
+   that cites it.
+4. **Slice ordering — #16 splits out and lands first**, verified on its own, not as slice 1 here.
+   It is a bug actively causing damage, it has a clean standalone regression case, and separating
+   it lets jobs-radar's re-sync proceed on its own track. Slices renumbered below.
 
 ---
 
@@ -51,26 +71,27 @@ defect then has nowhere to accrete, so it is paid for twice.
 
 ## 2. Slices
 
-**Slice 1 — fix the propagation mechanism (#16).** Manifest provenance is decided by the manifest,
-not by presence on disk. Regenerate from the union of (repo assets) and (prior manifest). Sync
-fails closed on a zero-entry manifest against a non-empty `.claude/`. Add the ADD class so assets
-new since the last bootstrap are visible (#25's open half). Regression case: bootstrap twice,
-assert the manifest did not shrink.
+**Precondition, not a slice — #16.** Manifest provenance decided by the manifest, not by presence
+on disk; sync fails closed on a zero-entry manifest; ADD class so assets new since the last
+bootstrap are visible (#25's open half). Lands and is verified on its own before this issue starts.
+Its regression case (bootstrap twice, manifest must not shrink) stays cited here as AC6, because
+this issue's propagation is what would silently re-open it.
 
-**Slice 2 — mechanical control set.** Propagate `eslint.config.js`, `run-tests.mjs`,
+**Slice 1 — mechanical control set.** Propagate `eslint.config.js`, `run-tests.mjs`,
 `guards.yml`, `secret-scan.yml`, `ci.yml` (installed as `.yml`), `observe.mjs`,
 `check-imports.mjs`, `hooks/git/pre-commit`. All manifest-recorded.
 
-**Slice 3 — learning artifacts.** Propagate `verification.md`, `code-review.md`, and the
-catch-log skeleton from #19 into `.claude/checklists/` and `.claude/memory/`. Manifest-recorded,
-so staleness is detectable — the failure mode this whole item exists to close.
+**Slice 2 — learning artifacts.** Propagate `verification.md` and `code-review.md` into
+`.claude/checklists/` with the mirror header (D2), and #19's catch-log skeleton + legend into
+`.claude/memory/`. Manifest-recorded, so staleness is detectable — the failure mode this whole
+item exists to close. **Requires #19's artifact to exist**, which is why #19 precedes this issue.
 
-**Slice 4 — `setup-project.sh` + `bootstrap.conf`.** The owner-run wiring, and the override.
+**Slice 3 — `setup-project.sh` + `bootstrap.conf`.** The owner-run wiring, and the override.
 
-**Slice 5 — re-bootstrap jobs-radar.** The mechanism's first real customer, and the proof it
-works on a project that is not a fresh fixture.
+**Slice 4 — re-bootstrap jobs-radar.** The mechanism's first real customer, and the proof it
+works on a project that is not a fresh fixture. Closes the live drift #16 exposed.
 
-## 3. Design decisions to confirm at this gate
+## 3. Design decisions (confirmed at Gate 1)
 
 **D1 · Two scripts, clear split.** `bootstrap-project.sh` (repo-side, copies + records, never
 edits owner-owned files) emits `setup-project.sh` (project-side, idempotent, wires
@@ -85,6 +106,20 @@ appended into `CLAUDE.md`, because that file is the project's override surface a
 hand-owned. *Consequence:* the standards doc's Rule 2 link is an absolute GitHub URL by design
 (so it resolves in projects); the propagated copy is the offline mirror, and the two are kept
 honest by the manifest rather than by a second URL.
+
+**D2a · Mirror header (added at Gate 1).** Each propagated checklist opens with a fixed banner:
+
+```
+> **Mirror — do not edit here.** Canonical: <absolute GitHub URL>
+> Local edits are a drift source and will show as CONFLICT on the next sync.
+> To change this checklist, change the canonical copy and re-sync.
+```
+
+The manifest already detects a divergent mirror mechanically; the banner exists to stop a *human*
+becoming the drift source, which no hash can prevent. **The catch-log is not a mirror** — it is
+project-owned data whose whole purpose is to accumulate locally. It receives the schema, the
+legend, and the promotion rule, and it carries no mirror header. Getting this backwards would tell
+a project not to write to the one file it is supposed to write to.
 
 **D3 · `.claude/bootstrap.conf`, committed, key=value.** Components: `lint`, `test`, `ci`,
 `secret_scan`, `import_guard`, `tdd_gate`, `observe`, `checklists`, `catch_log`. Defaults all
@@ -112,7 +147,7 @@ Each is stated with the instrument that reads it, per verification.md catch 7.
 |---|---|---|
 | 1 | Fresh `git init` + bootstrap + `setup-project.sh` -> `npm run lint`, `npm test` both run and pass; no hand-editing beyond `bootstrap.conf` | scripted e2e fixture under `mktemp -d`, asserted exit 0 |
 | 2 | The three CI workflows are installed as `.yml` and are valid | file existence + `gh workflow list` on a throwaway remote, or `actionlint` |
-| 3 | `verification.md`, `code-review.md`, catch-log present in the new project **and** manifest-recorded | grep the manifest for all three paths |
+| 3 | `verification.md`, `code-review.md`, catch-log present in the new project **and** manifest-recorded; the two checklists carry the mirror banner, the catch-log does **not** | grep the manifest for all three paths; grep the banner string (present ×2, absent ×1) |
 | 4 | The git secret guard **blocks** a planted fake key | `git commit` in the fixture, exit non-zero — real invocation path, not `bash pre-commit` (catch 5) |
 | 5 | Import guard runs in the new project's CI and loud-skips rather than silent-passes | assert the skip string is in the log when no adapter matches |
 | 6 | Re-running bootstrap does not shrink the manifest | bootstrap twice, compare entry counts (#16's regression case) |
@@ -139,21 +174,15 @@ Each is stated with the instrument that reads it, per verification.md catch 7.
   runs against a synthetic target verifies a path production never takes.
 - **`setup-project.sh` clobbers an owner's `package.json`.** Mitigation: refuse-on-conflict, print
   the diff, require the owner to resolve. Never merge silently.
-- **Propagating `verification.md` creates a second stale copy.** Mitigation: manifest-recorded, so
-  the sync sees it. This risk is exactly what slice 1 exists to make survivable — without #16's
-  fix, adding artifacts makes things worse.
+- **Propagating `verification.md` creates a second stale copy.** Mitigation: manifest-recorded (so
+  the sync sees it) plus the D2a mirror banner (so a human does not edit it). This is precisely why
+  #16 is a precondition rather than a slice — without the manifest fix, adding artifacts makes the
+  drift surface larger, not smaller.
 
 ---
 
-## Gate 1 questions
+## Gate 1 — APPROVED 2026-08-13
 
-1. **D1 — the two-script split**, with the emitted `setup-project.sh` as the only thing that
-   touches `package.json`. Does that satisfy "preserving the no-edit-package.json default"?
-2. **D2 — `.claude/checklists/` as the home for propagated learning artifacts.** Accept, or do you
-   want them somewhere a human reads more naturally?
-3. **AC9 (the mutation check) adds real work.** Keep it, or is AC1–AC8 going red on a broken
-   propagation sufficient evidence in your judgment?
-4. **Slice ordering:** #16's fix inside this issue as slice 1, or split out and land first?
-
-On approval: slices 1–5 in order, each with its own verification, #16's regression case
-committed with slice 1.
+All four questions answered in §"Gate 1 decisions" at the top. Proceed after **#16** and **#19**
+have landed and been verified: slices 1–4 in order, each with its own verification, AC9's mutation
+check run against the finished propagation rather than per-slice.
