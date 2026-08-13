@@ -44,6 +44,11 @@ if [[ ! -d "$PROJECT_PATH" ]]; then
 fi
 
 WORKFLOW_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# The shared definition of what gets propagated (see the file's header for why it
+# is extracted rather than duplicated into this script and the sync script).
+# shellcheck source=lib/asset-list.sh
+source "$WORKFLOW_DIR/scripts/lib/asset-list.sh"
 echo "Workflow repo: $WORKFLOW_DIR"
 echo "Target project: $PROJECT_PATH"
 echo "Project name: $PROJECT_NAME"
@@ -58,32 +63,150 @@ echo ""
 MANIFEST="$PROJECT_PATH/.claude/.asset-manifest"
 SOURCE_COMMIT="$(git -C "$WORKFLOW_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
-record_asset() {
-  # $1 = absolute path to the copied file in the project (hashed)
-  # $2 = path relative to .claude/ in the project   -> manifest column 1
-  # $3 = absolute path to the SOURCE file in the workflow repo. Pass the same
-  #      variable the cp used; column 3 is that path made repo-root-relative.
-  #      Derived per-asset from the real source, so an asset sourced outside
-  #      .claude/ (e.g. engineering-standards) is correct with no lookup.
-  local h src
-  h="$(sha256sum "$1" | awk '{print $1}')"
-  src="${3#"$WORKFLOW_DIR"/}"   # repo-root-relative source path -> column 3
-  printf '%s\t%s\t%s\n' "$2" "$h" "$src" >> "$MANIFEST"
+# Sentinel for column 2 when this script CANNOT know an asset's provenance: the
+# file is on disk, differs from the repo's copy, and no prior manifest entry says
+# where it came from. "The owner edited it" and "an old copy from a pre-manifest
+# bootstrap" are indistinguishable from here, so we record the uncertainty rather
+# than guessing. sync must refuse to auto-resolve these (issue #16).
+UNKNOWN_HASH='unknown'
+
+hash_of() { sha256sum "$1" | awk '{print $1}'; }
+
+# ── Provenance model (issue #16) ──────────────────────────────────────────────
+# The MANIFEST — not the file's presence on disk — decides whether an asset is
+# workflow-sourced. The old code asked `[[ -e target && ! -L target ]]` as though
+# it meant "the owner edited this", when it actually means "this exists", which is
+# true of everything the PREVIOUS run copied. Combined with truncate-at-start,
+# a second bootstrap recorded nothing and the manifest came back EMPTY — silently
+# reclassifying every workflow asset as a local override and making the project
+# invisible to sync-project-assets.sh, which then reported it perfectly in sync.
+#
+# Per asset:  a = hash in the prior manifest · b = project's current file · c = repo source
+#
+#   unlisted, absent          -> copy, record c                (new asset / ADD)
+#   unlisted, present, b == c -> leave, record c                (identical; safe to adopt)
+#   unlisted, present, b != c -> LEAVE, record UNKNOWN_HASH     (provenance unknowable)
+#   listed,   b == a          -> refresh from repo, record new  (untouched since copy)
+#   listed,   b != a          -> LEAVE, record **a**            (real override — see below)
+#   listed,   absent          -> re-copy, record new
+#   listed,   source gone     -> leave, carry the entry forward
+#
+# The override row is the one that matters. Re-recording it at the CURRENT hash
+# would be worse than dropping it: sync's three-hash logic would then read
+# b == a && c != a as "repo moved, project untouched -> safe to refresh" and
+# overwrite the owner's edit on the next run. Preserving the ORIGINAL recorded
+# hash is what keeps that classification honest.
+#
+# The manifest is regenerated from the UNION of (repo assets) and (prior entries),
+# never from "whatever this run happened to copy".
+
+declare -A PRIOR_HASH PRIOR_SRC NEW_HASH NEW_SRC
+PRIOR_ORDER=()
+NEW_ORDER=()
+n_placed=0; n_refreshed=0; n_override=0; n_adopted=0; n_unknown=0; n_carried=0
+
+load_prior_manifest() {
+  [[ -f "$MANIFEST" ]] || return 0
+  local path hash src
+  while IFS=$'\t' read -r path hash src; do
+    [[ -z "${path:-}" ]] && continue
+    case "$path" in \#*) continue ;; esac
+    [[ -z "${hash:-}" ]] && continue
+    # A pre-v2 (2-column) row carries no source path. Ignore it rather than
+    # misreading column 2 as a source: the asset will be re-derived below.
+    [[ -z "${src:-}" ]] && continue
+    if [[ -z "${PRIOR_HASH[$path]+x}" ]]; then PRIOR_ORDER+=("$path"); fi
+    PRIOR_HASH["$path"]="$hash"
+    PRIOR_SRC["$path"]="$src"
+  done < "$MANIFEST"
 }
 
-init_manifest() {
-  # Truncate-and-regenerate: only workflow-sourced entries live here, and each
-  # bootstrap re-derives them, so regenerating from scratch is idempotent.
+record_entry() {  # record_entry <rel-path> <hash> <repo-relative-source>
+  if [[ -z "${NEW_HASH[$1]+x}" ]]; then NEW_ORDER+=("$1"); fi
+  NEW_HASH["$1"]="$2"
+  NEW_SRC["$1"]="$3"
+}
+
+place_asset() {
+  # place_asset <absolute-source-in-workflow-repo> <path-relative-to-.claude/> [exec]
+  local src="$1" rel="$2" want_exec="${3:-}"
+  local target="$PROJECT_PATH/.claude/$rel"
+  local srcrel="${src#"$WORKFLOW_DIR"/}"
+  local a b c
+
+  if [[ ! -f "$src" ]]; then
+    echo "       WARN: source not found — skipping: $srcrel"
+    return 0
+  fi
+  c="$(hash_of "$src")"
+  mkdir -p "$(dirname "$target")"
+
+  install_it() {
+    cp "$src" "$target"
+    [[ -n "$want_exec" ]] && chmod +x "$target"
+    return 0
+  }
+
+  # A leftover symlink from the symlink-era bootstraps carries no provenance and
+  # cannot be hashed meaningfully — replace it and treat the result as fresh.
+  if [[ -L "$target" || ! -e "$target" ]]; then
+    rm -f "$target"
+    install_it
+    record_entry "$rel" "$c" "$srcrel"
+    n_placed=$((n_placed + 1))
+    return 0
+  fi
+
+  b="$(hash_of "$target")"
+
+  if [[ -n "${PRIOR_HASH[$rel]+x}" ]]; then
+    a="${PRIOR_HASH[$rel]}"
+    if [[ "$b" == "$a" ]]; then
+      install_it
+      record_entry "$rel" "$c" "$srcrel"
+      n_refreshed=$((n_refreshed + 1))
+    else
+      record_entry "$rel" "$a" "$srcrel"   # ORIGINAL hash — see the note above
+      n_override=$((n_override + 1))
+      echo "       Preserving local override: $rel"
+    fi
+  elif [[ "$b" == "$c" ]]; then
+    record_entry "$rel" "$c" "$srcrel"
+    n_adopted=$((n_adopted + 1))
+  else
+    record_entry "$rel" "$UNKNOWN_HASH" "$srcrel"
+    n_unknown=$((n_unknown + 1))
+    echo "       UNKNOWN PROVENANCE — left untouched, sync will refuse it: $rel"
+  fi
+}
+
+write_manifest() {
+  # Written ONCE, at the end, from the union of what we placed and what the prior
+  # manifest knew. Never truncated up front — that is what made a re-run lossy.
+  local path
+  for path in "${PRIOR_ORDER[@]:-}"; do
+    [[ -z "$path" ]] && continue
+    [[ -n "${NEW_HASH[$path]+x}" ]] && continue
+    record_entry "$path" "${PRIOR_HASH[$path]}" "${PRIOR_SRC[$path]}"
+    n_carried=$((n_carried + 1))
+  done
+
   {
     echo "# Asset manifest — agentic-engineering-workflow"
     echo "# Workflow-sourced files copied at bootstrap, with content hashes."
     echo "# Listed = workflow-sourced/re-syncable. Not listed = project override."
     echo "# Stale if workflow repo's current sha256 for a path != the hash here."
     echo "# Format: v2, 3 tab-separated columns (col 3 = repo-root-relative source path)."
+    echo "# A hash of '$UNKNOWN_HASH' means provenance could not be determined —"
+    echo "# resolve by hand; sync will not auto-update those entries."
     echo "# Generated: $(date -I)"
     echo "# Source: agentic-engineering-workflow @ $SOURCE_COMMIT"
     echo "#"
     printf '# <path-relative-to-.claude/>\t<sha256-at-copy-time>\t<source-path-relative-to-repo-root>\n'
+    for path in "${NEW_ORDER[@]:-}"; do
+      [[ -z "$path" ]] && continue
+      printf '%s\t%s\t%s\n' "$path" "${NEW_HASH[$path]}" "${NEW_SRC[$path]}"
+    done
   } > "$MANIFEST"
 }
 
@@ -91,150 +214,37 @@ init_manifest() {
 
 echo "[1/13] Creating .claude/ directory structure..."
 mkdir -p "$PROJECT_PATH/.claude/"{agents,skills,commands,memory,logs,rules,tdd,hooks}
-init_manifest
+load_prior_manifest   # read BEFORE anything is written; manifest is rewritten at the end
 echo "       Done."
 
-# ─── Step 2: Symlink agents ────────────────────────────────────────────────────
+# ─── Steps 2-6: Place every workflow asset ────────────────────────────────────
+# One table-driven loop over scripts/lib/asset-list.sh, which is the single
+# definition of what gets propagated and is shared with sync-project-assets.sh so
+# the installer and the drift detector cannot disagree about the asset set.
+# Adding a propagated asset means adding a row there, not editing this loop.
+#
+# What the assets are: the skills/commands/agents context layer; the @-imported
+# engineering-standards doc; the TDD gate RUNTIME (its own tests stay in the
+# workflow repo); the SessionStart rotator hook (a no-op except on an explicit
+# --new-slice run, so resuming mid-slice never wipes records); the git-native
+# secret-scan pre-commit guard, which genuinely BLOCKS unlike the advisory Claude
+# Code lifecycle hooks in the MINGW desktop runtime (ADR-0002) — CI gitleaks
+# remains the non-bypassable authority; and the hallucinated-dependency import
+# guard, which detects its ecosystem at runtime and skips LOUDLY when it has no
+# adapter so a propagated guard never becomes a silent pass.
 
-echo "[2/13] Copying agents..."
-agent_copied=0
-agent_overridden=0
-for agent in "$WORKFLOW_DIR/.claude/agents/"*.md; do
-  [[ -e "$agent" ]] || continue
-  target="$PROJECT_PATH/.claude/agents/$(basename "$agent")"
-  if [[ -e "$target" && ! -L "$target" ]]; then
-    echo "       Preserving local override: $(basename "$agent")"
-    agent_overridden=$((agent_overridden + 1))
-  else
-    rm -f "$target"   # clear a stale symlink from older (symlink-era) bootstraps
-    cp "$agent" "$target"
-    record_asset "$target" "agents/$(basename "$agent")" "$agent"
-    agent_copied=$((agent_copied + 1))
-  fi
-done
-echo "       Copied $agent_copied agents (${agent_overridden} local overrides preserved)."
+echo "[2-6/13] Placing workflow assets..."
+while IFS=$'\t' read -r rel src want_exec; do
+  [[ -z "${rel:-}" ]] && continue
+  place_asset "$src" "$rel" "${want_exec:-}"
+done < <(enumerate_workflow_assets "$WORKFLOW_DIR")
+echo "       Done."
 
-# ─── Step 3: Symlink skills ────────────────────────────────────────────────────
-
-echo "[3/13] Copying skills..."
-skill_copied=0
-skill_overridden=0
-for skill_dir in "$WORKFLOW_DIR/.claude/skills/"*/; do
-  [[ -d "$skill_dir" ]] || continue
-  skill_name="$(basename "${skill_dir%/}")"
-  target="$PROJECT_PATH/.claude/skills/$skill_name"
-  if [[ -e "$target" && ! -L "$target" ]]; then
-    echo "       Preserving local override: $skill_name"
-    skill_overridden=$((skill_overridden + 1))
-  else
-    rm -rf "$target"   # clear a stale symlink (or prior copy) before refresh
-    cp -r "${skill_dir%/}" "$target"
-    while IFS= read -r -d '' f; do
-      record_asset "$f" "skills/$skill_name/${f#"$target"/}" "${skill_dir%/}/${f#"$target"/}"
-    done < <(find "$target" -type f -print0)
-    skill_copied=$((skill_copied + 1))
-  fi
-done
-echo "       Copied $skill_copied skills (${skill_overridden} local overrides preserved)."
-
-# ─── Step 4: Symlink commands ─────────────────────────────────────────────────
-
-echo "[4/13] Copying commands..."
-cmd_copied=0
-cmd_overridden=0
-for cmd in "$WORKFLOW_DIR/.claude/commands/"*.md; do
-  [[ -e "$cmd" ]] || continue
-  target="$PROJECT_PATH/.claude/commands/$(basename "$cmd")"
-  if [[ -e "$target" && ! -L "$target" ]]; then
-    echo "       Preserving local override: $(basename "$cmd")"
-    cmd_overridden=$((cmd_overridden + 1))
-  else
-    rm -f "$target"   # clear a stale symlink from older (symlink-era) bootstraps
-    cp "$cmd" "$target"
-    record_asset "$target" "commands/$(basename "$cmd")" "$cmd"
-    cmd_copied=$((cmd_copied + 1))
-  fi
-done
-echo "       Copied $cmd_copied commands (${cmd_overridden} local overrides preserved)."
-
-# ─── Step 5: Symlink engineering-standards.md ─────────────────────────────────
-
-echo "[5/13] Copying engineering-standards.md..."
-SOURCE_STANDARDS="$WORKFLOW_DIR/docs/standards/engineering-standards.md"
-TARGET_STANDARDS="$PROJECT_PATH/.claude/engineering-standards.md"
-if [[ ! -f "$SOURCE_STANDARDS" ]]; then
-  echo "       WARN: source not found at $SOURCE_STANDARDS — skipping."
-elif [[ -e "$TARGET_STANDARDS" && ! -L "$TARGET_STANDARDS" ]]; then
-  echo "       Preserving local override: engineering-standards.md"
-else
-  rm -f "$TARGET_STANDARDS"   # clear a stale symlink before copying through it
-  cp "$SOURCE_STANDARDS" "$TARGET_STANDARDS"
-  if [[ -f "$TARGET_STANDARDS" && ! -L "$TARGET_STANDARDS" ]]; then
-    record_asset "$TARGET_STANDARDS" "engineering-standards.md" "$SOURCE_STANDARDS"
-    echo "       Copied engineering-standards.md."
-  else
-    echo "       ERROR: copy not created or is unexpectedly a symlink."
-    exit 1
-  fi
-fi
-
-# ─── Step 6: Copy TDD gate (runtime + rotator hook) + git secret-scan guard ───
-# The gate RUNTIME (recorder + detector) is the relocatable code copied into each
-# project; the gate's TEST files stay in the workflow repo and are NOT copied. The
-# rotator hook rotates the session log only on an explicit `--new-slice` run (at
-# slice start); on SessionStart it is a non-destructive no-op, so a resume mid-slice
-# never wipes records. Register it in settings.json by hand (wiring printed at the end).
-
-echo "[6/13] Copying TDD gate..."
-tdd_copied=0
-tdd_overridden=0
-for tdd_file in "$WORKFLOW_DIR/.claude/tdd/"*.js; do
-  [[ -e "$tdd_file" ]] || continue
-  case "$tdd_file" in *.test.js) continue ;; esac   # runtime only — tests stay in the repo
-  target="$PROJECT_PATH/.claude/tdd/$(basename "$tdd_file")"
-  if [[ -e "$target" && ! -L "$target" ]]; then
-    echo "       Preserving local override: tdd/$(basename "$tdd_file")"
-    tdd_overridden=$((tdd_overridden + 1))
-  else
-    rm -f "$target"   # clear a stale symlink from older bootstraps
-    cp "$tdd_file" "$target"
-    record_asset "$target" "tdd/$(basename "$tdd_file")" "$tdd_file"
-    tdd_copied=$((tdd_copied + 1))
-  fi
-done
-
-ROTATOR_SRC="$WORKFLOW_DIR/.claude/hooks/rotate-tdd-session-log.sh"
-ROTATOR_DST="$PROJECT_PATH/.claude/hooks/rotate-tdd-session-log.sh"
-if [[ ! -f "$ROTATOR_SRC" ]]; then
-  echo "       WARN: rotator hook not found at $ROTATOR_SRC — skipping."
-elif [[ -e "$ROTATOR_DST" && ! -L "$ROTATOR_DST" ]]; then
-  echo "       Preserving local override: hooks/rotate-tdd-session-log.sh"
-else
-  rm -f "$ROTATOR_DST"   # clear a stale symlink before copying through it
-  cp "$ROTATOR_SRC" "$ROTATOR_DST"
-  chmod +x "$ROTATOR_DST"   # hook is executed by Claude Code on SessionStart
-  record_asset "$ROTATOR_DST" "hooks/rotate-tdd-session-log.sh" "$ROTATOR_SRC"
-  tdd_copied=$((tdd_copied + 1))
-fi
-echo "       Copied $tdd_copied TDD gate file(s) (${tdd_overridden} local overrides preserved)."
-
-# git-native secret-scan pre-commit guard (issue #7). Copied to .claude/git-hooks/
-# (so it is re-syncable via the .claude-relative manifest) and wired with
-# `core.hooksPath`, which genuinely BLOCKS a commit — unlike the advisory Claude
-# Code lifecycle hooks in the MINGW desktop runtime (ADR-0002). CI gitleaks stays
-# the non-bypassable authority; this local guard is fast, fail-closed feedback.
-GUARD_SRC="$WORKFLOW_DIR/hooks/git/pre-commit"
-GUARD_DST="$PROJECT_PATH/.claude/git-hooks/pre-commit"
-if [[ ! -f "$GUARD_SRC" ]]; then
-  echo "       WARN: secret-scan guard not found at $GUARD_SRC — skipping."
-elif [[ -e "$GUARD_DST" && ! -L "$GUARD_DST" ]]; then
-  echo "       Preserving local override: .claude/git-hooks/pre-commit"
-else
-  mkdir -p "$(dirname "$GUARD_DST")"
-  rm -f "$GUARD_DST"
-  cp "$GUARD_SRC" "$GUARD_DST"
-  chmod +x "$GUARD_DST"   # executed by git on every commit
-  record_asset "$GUARD_DST" "git-hooks/pre-commit" "$GUARD_SRC"
+# The guard FILE is placed by the loop above; what remains here is the WIRING,
+# which is not a file copy and so has no manifest entry. Without core.hooksPath
+# the guard sits on disk and never runs — present but inert, the ADR-0002
+# false-confidence trap.
+if [[ -f "$PROJECT_PATH/.claude/git-hooks/pre-commit" ]]; then
   # Wire core.hooksPath, but never clobber a project's existing custom value.
   if git -C "$PROJECT_PATH" rev-parse --git-dir >/dev/null 2>&1; then
     existing="$(git -C "$PROJECT_PATH" config --local --get core.hooksPath 2>/dev/null || true)"
@@ -249,25 +259,6 @@ else
     echo "       NOTE: project is not a git repo — guard copied but not wired."
     echo "             Run: git -C '$PROJECT_PATH' config core.hooksPath .claude/git-hooks"
   fi
-fi
-
-# Hallucinated-dependency (real-import) checker (issue #7 slice-2). Runs in CI,
-# invoked by the import-guard step in .github/workflows/ci.yml. It detects the
-# ecosystem per-project at runtime and skips LOUDLY when it has no adapter, so
-# propagating it to a non-Node project cannot become a silent pass. Its tests
-# stay in the workflow repo (same convention as the TDD gate).
-IMPORTS_SRC="$WORKFLOW_DIR/scripts/check-imports.mjs"
-IMPORTS_DST="$PROJECT_PATH/.claude/ci/check-imports.mjs"
-if [[ ! -f "$IMPORTS_SRC" ]]; then
-  echo "       WARN: import checker not found at $IMPORTS_SRC — skipping."
-elif [[ -e "$IMPORTS_DST" && ! -L "$IMPORTS_DST" ]]; then
-  echo "       Preserving local override: .claude/ci/check-imports.mjs"
-else
-  mkdir -p "$(dirname "$IMPORTS_DST")"
-  rm -f "$IMPORTS_DST"
-  cp "$IMPORTS_SRC" "$IMPORTS_DST"
-  record_asset "$IMPORTS_DST" "ci/check-imports.mjs" "$IMPORTS_SRC"
-  echo "       Installed import guard (.claude/ci/check-imports.mjs)."
 fi
 
 # ─── Step 7: Scaffold .claude/rules/ ──────────────────────────────────────────
@@ -469,8 +460,20 @@ fi
 
 # ─── Done ─────────────────────────────────────────────────────────────────────
 
+write_manifest
+
 echo ""
 echo "Bootstrap complete for: $PROJECT_NAME"
+echo "  manifest: $((${#NEW_ORDER[@]})) entries — ${n_placed} placed, ${n_refreshed} refreshed," \
+     "${n_override} local override(s) kept, ${n_adopted} adopted, ${n_unknown} unknown-provenance," \
+     "${n_carried} carried forward"
+if [[ "$n_unknown" -gt 0 ]]; then
+  echo ""
+  echo "  ⚠ $n_unknown file(s) have UNKNOWN provenance: present, differing from the repo,"
+  echo "    and absent from any prior manifest. They were left untouched and recorded as"
+  echo "    '$UNKNOWN_HASH'. sync-project-assets.sh will refuse to auto-update them until a"
+  echo "    human decides whether each is a deliberate override or a stale pre-manifest copy."
+fi
 
 # ─── Manual wiring (Option C: print, don't edit) ──────────────────────────────
 # The gate files are now in place, but two files this script must NOT rewrite

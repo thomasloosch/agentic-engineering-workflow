@@ -66,6 +66,11 @@ REPO_CLAUDE="$REPO_PATH/.claude"
 
 hash_of() { sha256sum "$1" | cut -d' ' -f1; }
 
+# The shared definition of what the workflow propagates — the same one bootstrap
+# installs from, so this tool cannot go blind to assets the installer knows about.
+# shellcheck source=lib/asset-list.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/asset-list.sh"
+
 # Resolve a manifest path to its repo source, read from the manifest's 3rd
 # column (recorded at copy time by bootstrap). No hardcoded special-cases:
 # an asset sourced outside .claude/ carries its own source path. If the
@@ -105,10 +110,38 @@ while IFS=$'\t' read -r path hash src; do
   SRC["$path"]="$src"
 done < "$MANIFEST"
 
+# ─── Fail closed on an entry-less manifest (issue #16) ────────────────────────
+# A manifest with no data rows next to a NON-EMPTY .claude/ tree is not "nothing
+# to sync" — it is the signature of a manifest that lost its entries. Every
+# workflow asset then reads as an untracked project override, and the classify
+# loop below (which iterates the manifest) prints a zero-everything summary that
+# is indistinguishable from a healthy run. Exiting 0 there is a fail-OPEN drift
+# detector: it reports a clean bill of health on a project it has stopped
+# tracking. Standard 4 — fail closed.
+if [ "${#ORDER[@]}" -eq 0 ]; then
+  # Anything under .claude/ other than the manifest itself counts as content.
+  claude_files="$(find "$PROJECT_CLAUDE" -type f ! -name '.asset-manifest' -print -quit 2>/dev/null || true)"
+  if [ -n "$claude_files" ]; then
+    echo "ERROR: $MANIFEST has no entries, but $PROJECT_CLAUDE is not empty." >&2
+    echo "       Every workflow asset in this project is therefore untracked, and this" >&2
+    echo "       tool cannot tell a real override from a lost entry. Refusing to report" >&2
+    echo "       'in sync' on a project it is not tracking." >&2
+    echo "       Fix: re-run bootstrap-project.sh against this project to rebuild the" >&2
+    echo "       manifest from the union of repo assets and any surviving entries." >&2
+    exit 1
+  fi
+  echo "  manifest has no entries and .claude/ is empty — nothing to sync."
+fi
+
 # ─── Classify ─────────────────────────────────────────────────────────────────
 TO_UPDATE=()
 TO_READD=()
-n_skip=0 n_keep=0 n_conflict=0 n_update=0 n_missing_src=0 n_readd=0
+n_skip=0 n_keep=0 n_conflict=0 n_update=0 n_missing_src=0 n_readd=0 n_unverified=0
+
+# Sentinel written by bootstrap when an asset's provenance could not be determined
+# (present, differing from the repo, absent from any prior manifest). Must match
+# UNKNOWN_HASH in bootstrap-project.sh.
+UNKNOWN_HASH='unknown'
 
 for path in "${ORDER[@]}"; do
   a="${RECORDED[$path]}"
@@ -130,6 +163,18 @@ for path in "${ORDER[@]}"; do
   fi
   b="$(hash_of "$proj_file")"
 
+  # Unknown provenance is checked FIRST. An 'unknown' hash matches neither b nor c,
+  # so it would otherwise fall through to CONFLICT — which is safe (nothing is
+  # written) but states something we do not know: "BOTH project and repo changed."
+  # We have no idea whether the project's copy was edited; that is the whole point
+  # of the sentinel. Reporting a fabricated reason for a correct refusal is its own
+  # defect, so it gets its own class and an honest message.
+  if [ "$a" = "$UNKNOWN_HASH" ]; then
+    echo "  UNVERIFIED $path  (provenance unknown -> REFUSED, untouched)"
+    n_unverified=$((n_unverified+1))
+    continue
+  fi
+
   if [ "$b" = "$a" ] && [ "$c" = "$a" ]; then
     n_skip=$((n_skip+1))
   elif [ "$b" = "$a" ] && [ "$c" != "$a" ]; then
@@ -145,16 +190,46 @@ for path in "${ORDER[@]}"; do
   fi
 done
 
+# ─── ADD: repo assets this project has never tracked (issue #16) ──────────────
+# The loop above iterates the MANIFEST, so it can only ever see assets the project
+# already knows about. An asset added to the workflow after this project was
+# bootstrapped is in neither the manifest nor the project, and was therefore
+# reported as nothing at all — the reason jobs-radar silently has no import guard
+# and no git secret guard while this tool called it healthy.
+#
+# The asset set comes from scripts/lib/asset-list.sh, the same definition bootstrap
+# installs from, so the installer and the detector cannot disagree about what
+# exists. A file already present on disk is NOT an ADD — it is untracked content of
+# unknown provenance, which only bootstrap is allowed to adopt.
+TO_ADD=()
+n_add=0
+while IFS=$'\t' read -r rel src _want_exec; do
+  [[ -z "${rel:-}" ]] && continue
+  [ -n "${RECORDED[$rel]+x}" ] && continue
+  if [ -e "$PROJECT_CLAUDE/$rel" ]; then
+    echo "  UNTRACKED $rel  (present but in no manifest -> re-run bootstrap to adopt it)"
+    continue
+  fi
+  echo "  ADD       $rel  (in the workflow, never tracked here)"
+  TO_ADD+=("$rel")
+  SRC["$rel"]="${src#"$REPO_PATH"/}"
+  n_add=$((n_add+1))
+done < <(enumerate_workflow_assets "$REPO_PATH")
+
 echo
-echo "  summary: $n_update update, $n_readd re-add, $n_keep override, $n_conflict conflict, $n_skip unchanged, $n_missing_src source-gone"
+echo "  summary: $n_update update, $n_add add, $n_readd re-add, $n_keep override, $n_conflict conflict, $n_unverified unverified, $n_skip unchanged, $n_missing_src source-gone"
 
 # ─── Apply (safe operations only) ─────────────────────────────────────────────
-if [ "$APPLY" -eq 1 ] && { [ "${#TO_UPDATE[@]}" -gt 0 ] || [ "${#TO_READD[@]}" -gt 0 ]; }; then
+if [ "$APPLY" -eq 1 ] && { [ "${#TO_UPDATE[@]}" -gt 0 ] || [ "${#TO_READD[@]}" -gt 0 ] || [ "${#TO_ADD[@]}" -gt 0 ]; }; then
   echo
-  echo "  applying ${#TO_UPDATE[@]} update(s) + ${#TO_READD[@]} re-add(s)..."
-  for path in "${TO_UPDATE[@]}" "${TO_READD[@]}"; do
+  echo "  applying ${#TO_UPDATE[@]} update(s) + ${#TO_READD[@]} re-add(s) + ${#TO_ADD[@]} add(s)..."
+  for path in "${TO_UPDATE[@]:-}" "${TO_READD[@]:-}" "${TO_ADD[@]:-}"; do
+    [ -z "$path" ] && continue
     mkdir -p "$(dirname "$PROJECT_CLAUDE/$path")"
     cp "$(repo_source_for "$path")" "$PROJECT_CLAUDE/$path"
+    # An added asset is new to the manifest, so it needs an ORDER slot as well as
+    # a hash — without this it is written to disk and immediately forgotten again.
+    if [ -z "${RECORDED[$path]+x}" ]; then ORDER+=("$path"); fi
     RECORDED["$path"]="$(hash_of "$PROJECT_CLAUDE/$path")"
     echo "    wrote $path"
   done
@@ -184,6 +259,14 @@ if [ "$APPLY" -eq 1 ] && { [ "${#TO_UPDATE[@]}" -gt 0 ] || [ "${#TO_READD[@]}" -
   } > "$tmp"
   mv "$tmp" "$MANIFEST"
   echo "  manifest refreshed (canonical v2 header; source @ $repo_commit; hashes updated)."
+fi
+
+if [ "$n_unverified" -gt 0 ]; then
+  echo
+  echo "  NOTE: $n_unverified entr(ies) have UNKNOWN provenance and were REFUSED. Each is a"
+  echo "        file that predates manifest tracking: it may be a deliberate override or a"
+  echo "        stale copy. Diff it against the repo, decide, then record the real hash (or"
+  echo "        delete the file and re-run bootstrap to take the workflow's version)."
 fi
 
 if [ "$n_conflict" -gt 0 ]; then
