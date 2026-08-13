@@ -16,6 +16,8 @@ The issue tracker and triage label vocabulary should have been provided to you �
 
 Work from whatever is already in the conversation context. If the user passes an issue reference (issue number, URL, or path) as an argument, fetch it from the issue tracker and read its full body and comments.
 
+**Grep the premise against current code before writing anything.** An issue's premise ages: the layer it assumes may have been retired, the file it names may have moved, the problem may already be fixed. Resolve it from the code yourself rather than asking the user or taking the issue at its word. Where the premise has moved, say so explicitly in the output — a rescope note — instead of silently building against the stale version.
+
 ### 2. Explore the codebase (optional)
 
 If you have not already explored the codebase, do so to understand the current state of the code. Issue titles and descriptions should use the project's domain glossary vocabulary, and respect ADRs in the area you're touching.
