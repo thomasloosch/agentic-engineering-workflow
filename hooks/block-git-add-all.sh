@@ -57,7 +57,12 @@ fi
 #   git add -p
 #   git add -u (only modified/deleted, not new — different beast, allowed)
 
-if echo "$COMMAND" | grep -qE '(^|[;&|]|\s)git\s+add\s+(\.|-A|--all)(\s|$)'; then
+# Match against the COMMANDS only. A heredoc body is data — a commit message, a
+# file being written — and matching it blocked a commit whose message merely
+# documented this guard. See strip_heredoc_bodies for the trade-off taken.
+COMMAND_ONLY="$(strip_heredoc_bodies "$COMMAND")"
+
+if echo "$COMMAND_ONLY" | grep -qE '(^|[;&|]|\s)git\s+add\s+(\.|-A|--all)(\s|$)'; then
   echo "🛑 BLOCKED: 'git add .' / 'git add -A' / 'git add --all' is forbidden." >&2
   echo "" >&2
   echo "Reason: agents create out-of-scope files (test configs, generated artifacts," >&2

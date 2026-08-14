@@ -16,7 +16,9 @@ Configured in `~/.claude/settings.json` under the `hooks` key.
 
 ## Git-native hooks (`hooks/git/`)
 
-`hooks/git/` is a **separate mechanism** from the Claude Code lifecycle hooks above. These are ordinary git hooks, executed by git itself on `git` operations, wired via `git config core.hooksPath hooks/git`. Because git runs them directly, they **genuinely block** even in the MINGW desktop runtime where the Claude Code `PreToolUse` hooks are advisory-only (ADR-0002) — that's the whole reason they live here.
+`hooks/git/` is a **separate mechanism** from the Claude Code lifecycle hooks above. These are ordinary git hooks, executed by git itself on `git` operations, wired via `git config core.hooksPath hooks/git`. Because git runs them directly, they **genuinely block** on any `git` operation, including ones invoked outside Claude Code entirely — that's the whole reason they live here.
+
+> **Corrected 2026-08-14.** This section used to say the Claude Code `PreToolUse` hooks are "advisory-only" in the MINGW desktop runtime, citing ADR-0002. That is now known to be false: lifecycle hooks **do** fire here and blocking hooks **do** block (verified live — see the amended [ADR-0002](../docs/adr/0002-hooks-advisory-in-desktop-runtime.md)). The apparent deadness was four hooks exiting 127 on a missing `jq`. The git-native hooks are still worth having, for the reason now stated above — git runs them regardless of which tool issued the command.
 
 | Script | Git event | Effect |
 |---|---|---|

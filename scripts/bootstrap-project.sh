@@ -227,8 +227,10 @@ echo "       Done."
 # engineering-standards doc; the TDD gate RUNTIME (its own tests stay in the
 # workflow repo); the SessionStart rotator hook (a no-op except on an explicit
 # --new-slice run, so resuming mid-slice never wipes records); the git-native
-# secret-scan pre-commit guard, which genuinely BLOCKS unlike the advisory Claude
-# Code lifecycle hooks in the MINGW desktop runtime (ADR-0002) — CI gitleaks
+# secret-scan pre-commit guard, which git executes itself on every commit
+# regardless of which tool issued it (ADR-0002, amended 2026-08-14: Claude Code
+# lifecycle hooks DO fire and block in this runtime — the earlier "advisory-only"
+# claim was an artifact of four hooks dying on a missing `jq`) — CI gitleaks
 # remains the non-bypassable authority; and the hallucinated-dependency import
 # guard, which detects its ecosystem at runtime and skips LOUDLY when it has no
 # adapter so a propagated guard never becomes a silent pass.

@@ -61,9 +61,19 @@ individual project repos. Separate from product work (Sovary); used to build it.
   (Sovary/familienkalender) needs it. brand-guardian / performance-auditor /
   qa-testing (visual-brand, bundle/Lighthouse, Playwright live-testing) are web-app
   gates, N/A to CLI/cron — revisit as skills-or-hooks when web work needs them.
-- 6 enforcement hooks (dormant in MINGW desktop, active in terminal claude CLI) —
-  recorded as ADR-0002 (hooks advisory-only in the Desktop runtime; the constraint
-  the warn-direct-commit hook + secret-scan-belongs-in-CI decisions lean on).
+- Enforcement hooks: **ADR-0002 AMENDED 2026-08-14 — they were never dormant
+  because of the runtime.** Four of five exited 127 on a missing `jq` (under
+  `set -euo pipefail`, at their first extraction line), which Claude Code treats
+  as a non-blocking error — so they failed OPEN for months. Now jq-free
+  (`hooks/lib/json-extract.sh`), fail-CLOSED on unparseable+dangerous payloads,
+  and covered by 18 tests via the real invocation path. Verified LIVE: `git add
+  -A` and force-push-to-main are both genuinely refused. The surviving real
+  limitation is inverted from the old claim — hooks ENFORCE fine; a *warn-only*
+  hook that exits 0 is mute here (its stderr never surfaces), so if it matters,
+  make it block. `PostToolUse`/`SessionStart` firing still unverified —
+  `hooks/probe-hook-firing.sh` is installed and registered; read
+  `~/.claude/logs/hook-firing-probe.log` after one fresh desktop session, finish
+  the ADR, then remove the probe.
 - FLAGGED DECISION (not taken here): the workflow repo has no root CLAUDE.md, and
   we're keeping it that way for now. The no-root decision was about not placing the
   GLOBAL CLAUDE.md at root; a dedicated PROJECT CLAUDE.md is a separate question. A
@@ -229,11 +239,14 @@ individual project repos. Separate from product work (Sovary); used to build it.
 - Never commit via the GitHub web UI (commits direct to main without local
   sync — the two-write-path hazard, finding G). Commit runtime (MINGW desktop
   vs WSL2) is incidental to integrity; build/test belongs in WSL2 (above).
-- Claude Code LIFECYCLE hooks (PreToolUse etc., hooks/*.sh) are dormant in the
-  desktop app — that git discipline is manual there (ADR-0002). This does NOT
-  apply to GIT-NATIVE hooks (hooks/git/, wired via core.hooksPath): git runs
-  those itself, so they genuinely block in MINGW. Verified in #7 slice-1 — do
-  not collapse the two mechanisms back together.
+- Claude Code LIFECYCLE hooks (PreToolUse etc., hooks/*.sh) **DO fire and DO
+  block in the desktop app** — ADR-0002 amended 2026-08-14 on live evidence; the
+  old "dormant/manual" claim was a `jq` artifact, not a runtime property. Git
+  discipline is now genuinely enforced there. GIT-NATIVE hooks (hooks/git/, wired
+  via core.hooksPath) remain a DISTINCT mechanism — git runs those itself, so they
+  block on any git operation including ones issued outside Claude Code. Still do
+  not collapse the two mechanisms together; the distinction is real, just no
+  longer a difference in *whether* each enforces.
 - Exec-bit CI assertion keys on shebang ∪ *.sh — extensionless scripts
   (hooks/git/pre-commit) exist; a *.sh-only rule would miss the file that caused
   the original bug (it shipped 100644, so git silently ignored it). Do not

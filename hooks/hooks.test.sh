@@ -82,6 +82,38 @@ else
 $out"
 fi
 
+# 3b. A HEREDOC BODY that merely mentions the pattern must NOT be blocked.
+#     Found the hard way: the first real commit after reviving these hooks was
+#     refused, because its commit message documented the `git add -A` probe used to
+#     verify the hook. The guard inspects the raw command string, so writing about
+#     the guard tripped the guard. Text after a `<<` marker is DATA — a commit
+#     message, a file body — not a command, and blocking on it makes the hook
+#     unusable for exactly the work that documents it.
+payload=$(bash_payload 'cat > /tmp/msg.txt << \"EOF\"\nfix: verified the guard\n\n  git add -A   -> BLOCKED\nEOF\ngit commit -F /tmp/msg.txt')
+out=$(run_hook "block-git-add-all.sh" "$payload")
+rc=$?
+if [ "$rc" -eq 0 ]; then
+  pass "block-git-add-all: pattern inside a heredoc body → allowed"
+else
+  fail "block-git-add-all: pattern inside a heredoc body → allowed" \
+       "got exit $rc, expected 0 — the hook is matching data, not commands. Output:
+$out"
+fi
+
+# 3c. But a real `git add -A` BEFORE a heredoc must still be blocked. The fix for
+#     3b must not become a bypass: appending a heredoc to any command would
+#     otherwise disable the guard entirely.
+payload=$(bash_payload 'git add -A && cat > /tmp/m.txt << \"EOF\"\nnotes\nEOF')
+out=$(run_hook "block-git-add-all.sh" "$payload")
+rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "block-git-add-all: real 'git add -A' before a heredoc → still blocked"
+else
+  fail "block-git-add-all: real 'git add -A' before a heredoc → still blocked" \
+       "got exit $rc, expected 2 — the heredoc fix became a bypass. Output:
+$out"
+fi
+
 # 4. Unparseable payload carrying the dangerous pattern must FAIL CLOSED.
 #    The #16 lesson: when a guard cannot establish the truth, refusing is correct
 #    and waving the command through is the actual defect.

@@ -44,6 +44,7 @@ project's own history and do not travel.
 | `silent-truncation` | a hardcoded or incomplete enumeration silently drops entries instead of failing loud | #13 |
 | `artifact-vs-effect` | the committed/reported state looks right; the running/actual effect is not what it claims | verification.md catch 1; catch 7's third bullet |
 | `unsafe-test-isolation` | a test operates on live/shared state instead of an isolated fixture, risking corruption on failure | verification.md catch 6 — **added here**, no seed-table entry existed for it |
+| `overbroad-assertion` | an assertion fails on correct code — a false RED. The mirror of `vacuous-test`, kept **separate on purpose**: both are "the assertion doesn't measure the claim", but one hides defects and the other manufactures them, and lumping them would let three unrelated mistakes trip a promotion that describes neither | added 2026-08-14 (the jq-in-comments assertion) |
 
 ## Promotion rule
 
@@ -65,6 +66,18 @@ recurring class generalises is judgment; it fails the falsifier-discriminator
 membership test, so there is nothing here to delegate or gate. #25 records the
 automated up-path as designed-but-gated.
 
+**Once promoted, a class stops counting toward promotion.** New instances are
+still logged — they are evidence the promoted principle is being learned but not
+yet absorbed — but they do not re-trigger the threshold. Without this the rule
+would re-promote `artifact-vs-effect` on every third recurrence forever.
+(Added 2026-08-14, when that class recurred immediately after its promotion.)
+
+**Do not merge classes to reach the threshold.** Three superficially similar
+mistakes are not three instances of one cause, and a promotion built on a merged
+count describes something that never happened. When two classes look adjacent,
+the test is whether the same fix addresses both — see `vacuous-test` vs
+`overbroad-assertion`, split on exactly this basis.
+
 ## Hygiene
 
 - **Promoted rows collapse.** Once a class is promoted, its contributing rows
@@ -82,6 +95,9 @@ automated up-path as designed-but-gated.
   `docs/metrics/catch-log-archive-<YYYY-MM>.md`, oldest first.
 - **No commentary column.** Reasoning belongs in the promotion target or the
   commit message.
+- **No `|` characters in cell text**, not even Markdown-escaped as `\|`. It
+  renders correctly but breaks any column-wise count of the table, which is the
+  one property AC5 depends on. Rephrase instead.
 - **Append in the turn the catch happens.** A log written at session close is
   written from memory, and memory rounds toward the flattering number.
 
@@ -98,6 +114,13 @@ automated up-path as designed-but-gated.
 | 2026-07-17 | A negative test mutated the live git index when a `cd` failed silently under `set -e` (test ran against live state, not an isolated `mktemp -d` fixture). | human | unsafe-test-isolation | fixed |
 | 2026-08-13 | #16's own re-run regression test stayed green when the prior-manifest-load code was disabled — every file fell back to "untracked but identical to the repo" and got adopted, so the entry *count* survived by a different path. The test proved less than it looked like it did. | agent-self | vacuous-test | fixed+regression-case |
 | 2026-08-13 | — | — | `artifact-vs-effect` | promoted -> verification.md catch 1, 3 rows (2 human, 1 agent-self), 2026-08-13 |
+| 2026-08-14 | Four lifecycle hooks exited 127 on a missing `jq` under `set -euo pipefail`, before any of their own logic. Exit 127 is non-blocking to Claude Code, so `git add -A` and force-push-to-main passed through guards built to stop them, silently, for months. | human | fail-open-guard | fixed+regression-case |
+| 2026-08-14 | ADR-0002 attributed the dead hooks to the MINGW runtime (`$HOME` path assumptions). Live probes showed hooks fire and block fine here — the runtime premise was wrong, and the real cause was the missing `jq`. A documented decision resting on an unverified mechanism. | human | premise-drift | fixed |
+| 2026-08-14 | `SH_DIRS` in run-tests.mjs listed `.claude/hooks` and `hooks/git` but not `hooks` itself, so a test file placed there was never discovered and the four lifecycle hooks had no suite at all. | agent-self | silent-truncation | fixed+regression-case |
+| 2026-08-14 | First version of the "no hook invokes jq" assertion matched the word `jq` in the new explanatory comments and in the test file itself, reporting all four fixed hooks as still broken. A false RED. | automatic-gate | overbroad-assertion | fixed |
+| 2026-08-14 | The revived block-git-add-all refused the first real commit made after reviving it, because the commit message documented the `git add -A` probe used to verify it. The guard inspects the raw command string, so writing about the guard tripped the guard. Heredoc bodies now stripped before matching; quoted strings deliberately still matched, since ignoring them would make `git add "."` a trivial bypass. | automatic-gate | overbroad-assertion | fixed+regression-case |
+| 2026-08-14 | First attempt at stripping heredoc bodies used `sed`, which applies its script per line, so `.*$` stopped at the first newline and left the entire heredoc body — the thing it existed to remove — intact. Silently did nothing for its only use case; caught by the test that had just been written for it. | automatic-gate | artifact-vs-effect | fixed |
+| 2026-08-14 | Reported a planted-secret probe's exit status from a piped command, so the printed code belonged to the last process in the pipe rather than to git. Ground truth (no commit created) was checked separately and did confirm the block, but the stated evidence measured the wrong process. | agent-self | artifact-vs-effect | fixed |
 
 **Provenance note on the six 2026-07-22 / 2026-07-17 catches.** Backfilled from
 the `#7` session (issue created 2026-07-17, closed 2026-07-22; verification
@@ -121,12 +144,34 @@ this file from becoming `patterns.md` again. The rule going forward: **when a
 promotion fires, fold its rows' who-caught breakdown into the collapsed row's
 outcome text** (done above), so a full-corpus count is still "from the file
 alone, no external context" — it costs one extra line to read, not a
-git-history lookup. As seeded here: 6 individually visible rows
-(agent-self: 2, human: 4) **plus** the collapsed row's breakdown
-(agent-self: 1, human: 2) = **agent-self: 3, human: 6, automatic-gate: 0**
-across the full 9-catch corpus — a retrospective backfill plus today's `#16`
-build, not `#18`'s measurement. `#18` measures the *next* run against this
-baseline; this count is not that number.
+git-history lookup.
+
+**Current corpus (updated 2026-08-14, after the hook-revival build).** 13
+individually visible rows (agent-self: 4, human: 6, automatic-gate: 3) **plus**
+the collapsed row's breakdown (agent-self: 1, human: 2) = **agent-self: 5,
+human: 8, automatic-gate: 3** across 16 catches.
+
+Read that number carefully, because it is not the #18 measurement and must not
+be quoted as one. It mixes three unlike things: a retrospective backfill of six
+historical `human` catches, and two builds (#16 and the hook revival) done by an
+agent that *knew it was being measured on self-catch rate* — which is precisely
+the incentive problem §9 names. It is a baseline for comparison, not a result.
+
+Two honest readings of it:
+
+**The expensive defects were invisible to every gate.** #16's manifest and the
+dead hooks were both `fail-open-guard`s, and a gate that fails open cannot catch
+anything, including itself. Both needed a human or a deliberate probe. That is a
+finding about the harness, not about the log.
+
+**`automatic-gate` went 1 → 3 within a single build, and all three came from
+tests written minutes earlier.** The heredoc false positive, the `sed`-does-
+nothing bug, and the jq-in-comments false RED were each caught by a fresh
+assertion rather than by a human. That is the first evidence in this corpus of
+gates catching things — and it is worth being precise about what it does and
+doesn't show: these gates caught defects in *the thing being built in that same
+turn*, which is TDD working, not the standing harness working. The standing
+harness still has a 0-for-2 record on the defects that actually cost weeks.
 
 ---
 
@@ -157,5 +202,27 @@ them.
 
 ---
 
-*Archive: none yet — 6 individual rows + 1 collapsed promotion line = 9 catches
+## Class standings (recount after the 2026-08-14 hook-revival build)
+
+Counted per the rules above — promoted classes excluded, adjacent classes not merged.
+
+| class | rows | toward promotion |
+|---|---|---|
+| `artifact-vs-effect` | 3 collapsed + 2 new | **promoted** — no longer counts. Two fresh instances in one build says the principle is documented but not yet absorbed. |
+| `fail-open-guard` | 2 (#16 manifest, the dead hooks) | **1 away.** Two builds, two instances, both invisible until something probed for *effect* rather than *presence*. The likeliest next promotion. |
+| `overbroad-assertion` | 2 (jq-in-comments, heredoc false positive) | 1 away — both from this build, both false REDs from an assertion matching data rather than the property claimed |
+| `vacuous-test` | 2 | 1 away |
+| `wrong-invocation-path` | 2 | 1 away |
+| `premise-drift` | 1 | 2 away |
+| `silent-truncation` | 1 | 2 away |
+| `unsafe-test-isolation` | 1 | 2 away |
+
+`fail-open-guard` at 2-of-3 is the one to watch: if it lands a third time, the
+promotion target is a principle roughly of the form *"a guard must be verified to
+produce its EFFECT, not merely to be present and exit non-zero"* — which
+`verification.md` catch 2 gestures at ("confirm the guard actually fired") but
+does not state as a general requirement about guards that die before their own
+logic.
+
+*Archive: none yet — 13 individual rows + 1 collapsed promotion line = 16 catches
 accounted for, cap is 50 live rows.*

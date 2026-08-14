@@ -162,8 +162,15 @@ Each is stated with the instrument that reads it, per verification.md catch 7.
   two projects.
 - **Reviving `.claude/agents/`.** ADR-0003 stands; the CI template's agent-frontmatter job is
   dropped, not propagated.
-- **Making lifecycle hooks work in the MINGW desktop runtime.** ADR-0002 is accepted; that is why
-  the *git-native* guard is the one this spec verifies as blocking.
+- **Making lifecycle hooks work in the MINGW desktop runtime.** ~~ADR-0002 is accepted; that is why
+  the *git-native* guard is the one this spec verifies as blocking.~~ **Resolved 2026-08-14,
+  outside this issue:** lifecycle hooks were found to fire and block correctly here — the
+  "advisory-only" premise was an artifact of four hooks exiting 127 on a missing `jq`
+  (ADR-0002, amended). AC4 still verifies the *git-native* guard as the blocking one, which
+  remains correct for its own reason: git runs it regardless of which tool issued the commit.
+  A consequence for this spec: propagated projects can now rely on lifecycle hooks actually
+  enforcing, so the emitted `setup-project.sh` should register them rather than treating them
+  as decorative.
 - **A CLAUDE.md for this repo.** Still the deliberately-deferred repo-architecture question
   recorded in `current-state.md`.
 
