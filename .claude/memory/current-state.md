@@ -165,9 +165,17 @@ individual project repos. Separate from product work (Sovary); used to build it.
     Rule-10 reframe, Rule 2's verification.md link), and why the import guard and
     git secret guard never reached it at all. Lands standalone and verified, before
     #17 — do not build more propagation through a broken propagation mechanism.
-  - **#19 catch-log** — per-project defect log (what / who-caught / error-class),
-    3-value closed who-caught set, rule-of-three promotion. Precedes #17 because
-    #17 slice 2 propagates it.
+  - **#19 catch-log — BUILT, v0.5 posted for review 2026-08-13** (`6ef5161` seed,
+    `8533c93` first promotion), CI green. `.claude/memory/catch-log.md`: 3-value
+    who-caught set, rule-of-three promotion, seeded with #16's row + the six
+    backfilled `#7`-session catches + one real worked promotion
+    (`artifact-vs-effect` -> already-existing verification.md catch 1).
+    Running the promotion for real (not describing it) exposed a real gap in the
+    hygiene rule as first drafted — collapsing rows without their who-caught
+    breakdown would have silently broken AC5 on every future promotion; fixed in
+    the same build. AC2 (propagation) and AC6 (populated by a real build)
+    deliberately NOT closed — those complete with #17 and #18 respectively, so
+    #19 stays open on the board.
   - **#17 full-harness bootstrap** — propagate the whole reference control set AND
     the learning artifacts; emitted owner-run `setup-project.sh` does the wiring so
     bootstrap never edits package.json.
