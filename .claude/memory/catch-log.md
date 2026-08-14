@@ -68,9 +68,16 @@ automated up-path as designed-but-gated.
 ## Hygiene
 
 - **Promoted rows collapse.** Once a class is promoted, its contributing rows
-  are struck through and replaced by one line:
-  `class -> promoted to <target>, N rows, <date>`. Full detail stays in git
-  history at the commit that recorded them — never reconstructed here.
+  are removed and replaced by one line:
+  `class -> promoted to <target>, N rows (X human, Y agent-self, Z
+  automatic-gate), <date>`. Full narrative detail stays in git history at the
+  commit that recorded them — never reconstructed here — but the who-caught
+  breakdown travels with the collapsed line itself. Without it, AC5
+  ("computable from the file alone") degrades on every promotion: the count
+  would be right until the first collapse, then quietly wrong forever after,
+  which is worse than not promoting at all. Discovered doing the first
+  promotion below, not designed in up front — recorded here so the next one
+  doesn't rediscover it.
 - **Cap: 50 live rows.** Excess archives to
   `docs/metrics/catch-log-archive-<YYYY-MM>.md`, oldest first.
 - **No commentary column.** Reasoning belongs in the promotion target or the
@@ -85,40 +92,53 @@ automated up-path as designed-but-gated.
 | date | what | who-caught | error-class | outcome |
 |---|---|---|---|---|
 | 2026-08-13 | Bootstrap re-run emptied the asset manifest (37 → 0); sync then reported a clean bill of health. Root cause: a file's mere presence on disk was read as "local override," and the manifest was truncated before re-derivation, so preserved-and-unrecorded meant permanently dropped. | agent-self | fail-open-guard | fixed+regression-case |
-| 2026-07-22 | Secret-scan guard committed at file mode 100644; git silently skips a non-executable hook, though it ran fine in the local working tree. | human | artifact-vs-effect | fixed |
-| 2026-07-22 | A green test run was treated as proof the guard fired; only the absence of an "ignored hook" signal actually confirms it. | human | artifact-vs-effect | fixed |
 | 2026-07-22 | The guard's own tests still passed with the guard stubbed to always-pass — the negative cases were vacuous. | human | vacuous-test | fixed |
 | 2026-07-22 | New `*.sh` scripts land at file mode 100644 from the agent's file-creation path; exec bit is never set by that path. | human | wrong-invocation-path | fixed |
 | 2026-07-22 | Guard tests invoked it via `bash <script>`, which cannot observe file mode — tests stayed green while the real, git-invoked hook was inert. | human | wrong-invocation-path | fixed |
 | 2026-07-17 | A negative test mutated the live git index when a `cd` failed silently under `set -e` (test ran against live state, not an isolated `mktemp -d` fixture). | human | unsafe-test-isolation | fixed |
 | 2026-08-13 | #16's own re-run regression test stayed green when the prior-manifest-load code was disabled — every file fell back to "untracked but identical to the repo" and got adopted, so the entry *count* survived by a different path. The test proved less than it looked like it did. | agent-self | vacuous-test | fixed+regression-case |
-| 2026-08-13 | New test/lib files staged at mode 100644 despite showing `rwxr-xr-x` on disk (the UNC exec-bit phantom — `chmod` on this checkout never reaches the git index). Caught by running the CI exec-bit assertion locally before committing, prompted by exactly this class already being in this log. | agent-self | artifact-vs-effect | fixed |
+| 2026-08-13 | — | — | `artifact-vs-effect` | promoted -> verification.md catch 1, 3 rows (2 human, 1 agent-self), 2026-08-13 |
 
-**Provenance note on the six 2026-07-22 / 2026-07-17 rows.** Backfilled from the
-`#7` session (issue created 2026-07-17, closed 2026-07-22; verification lessons
-committed `aa22072`, 2026-07-22) to put the six-for-six all-human baseline
-(cited in `verification.md`'s provenance note and ADR-0006) into this
-instrument rather than leaving it as a sentence in prose. All six are `human`
-per that baseline. Two of the six (rows 2–3 above) and row 4–5 are recorded as
-**separate rows** even though `verification.md` documents catch 4 as a special
-case of catch 5 — matching the original six-item numbering rather than
-pre-collapsing it, so the historical count stays traceable to its source.
+**Provenance note on the six 2026-07-22 / 2026-07-17 catches.** Backfilled from
+the `#7` session (issue created 2026-07-17, closed 2026-07-22; verification
+lessons committed `aa22072`, 2026-07-22) to put the six-for-six all-human
+baseline (cited in `verification.md`'s provenance note and ADR-0006) into this
+instrument rather than leaving it as a sentence in prose. All six were seeded
+as `human`, and were kept at the original six-item granularity rather than
+pre-collapsing catch 4 into catch 5 at seed time (even though `verification.md`
+documents one as the other's special case), so the historical count stayed
+traceable to its source before any promotion touched it. Two of the six (the
+committed-artifact and confirm-fired catches) are now the human half of the
+collapsed row below — see the note on AC5 immediately after.
 
-Read counts directly (AC5): as seeded, `who-caught` is **agent-self: 3, human:
-6, automatic-gate: 0** — a retrospective backfill plus today's `#16` build, not
-`#18`'s measurement. `#18` measures the *next* run against this baseline; this
-count is not that number.
+**AC5 after a collapse.** Counting the `who-caught` column directly now
+undercounts: the promotion below removed three individual rows (2 human, 1
+agent-self) from the table, and their breakdown lives only in the collapsed
+row's `outcome` cell, not in three separate `who-caught` cells. This is a real
+cost of the collapse rule, not an oversight — keeping N rows alive forever so a
+retrospective count stays a single column-scan would defeat the cap that keeps
+this file from becoming `patterns.md` again. The rule going forward: **when a
+promotion fires, fold its rows' who-caught breakdown into the collapsed row's
+outcome text** (done above), so a full-corpus count is still "from the file
+alone, no external context" — it costs one extra line to read, not a
+git-history lookup. As seeded here: 6 individually visible rows
+(agent-self: 2, human: 4) **plus** the collapsed row's breakdown
+(agent-self: 1, human: 2) = **agent-self: 3, human: 6, automatic-gate: 0**
+across the full 9-catch corpus — a retrospective backfill plus today's `#16`
+build, not `#18`'s measurement. `#18` measures the *next* run against this
+baseline; this count is not that number.
 
 ---
 
 ## Promotions fired
 
-**2026-08-13 — `artifact-vs-effect` reached 3 rows** in this project's log
-(the two 2026-07-22 rows above, plus the UNC exec-bit staging catch). Per the
-promotion rule this is a candidate. **Resolution: already promoted** — this
-class *is* `verification.md` catch 1 (and the third bullet of catch 7); the
-first two rows are that catch's own origin, so there is no new standards
-artifact to create.
+**2026-08-13 — `artifact-vs-effect` reached 3 rows** in this project's log: the
+two 2026-07-22 catches (secret guard committed 100644; confirming it fired
+means more than a green test) plus the 2026-08-13 UNC exec-bit staging catch.
+Per the promotion rule this is a candidate. **Resolution: already promoted** —
+this class *is* `verification.md` catch 1 (and the third bullet of catch 7);
+the first two catches are that catch's own origin, so there is no new
+standards artifact to create.
 
 What this demonstrates is narrower than "a new rule got written," and that is
 the point: (a) threshold-detection fires correctly against real rows, not a
@@ -137,4 +157,5 @@ them.
 
 ---
 
-*Archive: none yet — 9 live rows, cap is 50.*
+*Archive: none yet — 6 individual rows + 1 collapsed promotion line = 9 catches
+accounted for, cap is 50 live rows.*
