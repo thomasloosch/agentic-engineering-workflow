@@ -33,7 +33,12 @@ const shOnly = process.argv.includes('--sh-only');
 // Directories searched per category. Adding a suite means dropping a file in one
 // of these — no list to update here, which is the point.
 const NODE_DIRS = ['.claude/tdd', 'scripts'];
-const SH_DIRS = ['.claude/hooks', 'hooks/git', 'scripts'];
+// `hooks` (the Claude Code LIFECYCLE hooks) was missing here while `hooks/git` and
+// `.claude/hooks` were present — so a test file dropped into hooks/ was silently
+// never discovered, and the four lifecycle hooks went un-suited entirely. Same
+// silent-truncation class as the hardcoded two-file command #13 fixed: discovery
+// that quietly covers less than it appears to.
+const SH_DIRS = ['.claude/hooks', 'hooks', 'hooks/git', 'scripts'];
 
 const NODE_RE = /\.test\.(js|mjs)$/;
 const SH_RE = /\.test\.sh$/;

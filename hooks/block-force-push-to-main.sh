@@ -8,10 +8,32 @@
 #
 # Reads JSON tool input from stdin. Blocks via exit code 2.
 
-set -euo pipefail
+set -uo pipefail
+# NOT `set -e` — see the note in block-git-add-all.sh. Under `-e` plus a missing
+# `jq` this hook exited 127, which Claude Code treats as a non-blocking error, so
+# a force-push to main was never actually guarded.
+
+# shellcheck source=lib/json-extract.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/json-extract.sh"
+
+DANGER='git[[:space:]]+push.*(--force|-f([[:space:]]|\\|"|$)|--force-with-lease)'
 
 PAYLOAD=$(cat)
-COMMAND=$(echo "$PAYLOAD" | jq -r '.tool_input.command // empty')
+
+COMMAND="$(json_extract_or_fail_closed 'command' "$PAYLOAD" "$DANGER" 'block-force-push-to-main')"
+case $? in
+  0) ;;
+  2)
+    echo "🛑 BLOCKED: could not parse the hook payload, and it contains what looks" >&2
+    echo "   like a force-push. Refusing rather than guessing — force-push to the" >&2
+    echo "   canonical branch is unrecoverable, so an unreadable payload is not" >&2
+    echo "   grounds to allow it." >&2
+    echo "" >&2
+    echo "Hook source: ~/.claude/hooks/block-force-push-to-main.sh" >&2
+    exit 2
+    ;;
+  *) exit 0 ;;
+esac
 
 if [[ -z "$COMMAND" ]]; then
   exit 0
@@ -44,7 +66,7 @@ if echo "$COMMAND" | grep -qE 'git\s+push.*\s(origin|upstream)\s+(main|master)(\
 fi
 
 # Also check current branch — if no explicit target, current branch is implied
-CWD=$(echo "$PAYLOAD" | jq -r '.cwd // empty')
+CWD="$(json_string_value 'cwd' "$PAYLOAD" || true)"
 CURRENT_BRANCH=""
 if [[ -n "$CWD" && -d "$CWD/.git" ]]; then
   CURRENT_BRANCH=$(cd "$CWD" && git branch --show-current 2>/dev/null || echo "")

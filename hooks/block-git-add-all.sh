@@ -8,13 +8,35 @@
 # Reads JSON tool input from stdin. Blocks via exit code 2.
 # Allows the command to proceed via exit code 0.
 
-set -euo pipefail
+set -uo pipefail
+# NOTE: deliberately NOT `set -e`. Under `-e` this hook exited 127 at its first
+# extraction line when `jq` was missing — a non-blocking exit code, so the guard
+# failed OPEN and `git add -A` proceeded unguarded. Error handling here is
+# explicit so an unexpected condition can end in a BLOCK rather than a shrug.
+
+# shellcheck source=lib/json-extract.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/json-extract.sh"
+
+DANGER='git[[:space:]]+add[[:space:]]+(\.|-A|--all)([[:space:]]|\\|"|$)'
 
 # Read JSON payload from stdin
 PAYLOAD=$(cat)
 
-# Extract the command field
-COMMAND=$(echo "$PAYLOAD" | jq -r '.tool_input.command // empty')
+# Extract the command field. A parse failure that still smells like `git add -A`
+# blocks rather than passes — see json_extract_or_fail_closed.
+COMMAND="$(json_extract_or_fail_closed 'command' "$PAYLOAD" "$DANGER" 'block-git-add-all')"
+case $? in
+  0) ;;   # parsed cleanly
+  2)
+    echo "🛑 BLOCKED: could not parse the hook payload, and it contains something" >&2
+    echo "   that looks like 'git add .' / '-A' / '--all'. Refusing rather than" >&2
+    echo "   guessing — an unreadable payload is not evidence of a safe command." >&2
+    echo "" >&2
+    echo "Hook source: ~/.claude/hooks/block-git-add-all.sh" >&2
+    exit 2
+    ;;
+  *) exit 0 ;;   # unparseable but nothing alarming — not our concern
+esac
 
 # If no command, allow (not our concern)
 if [[ -z "$COMMAND" ]]; then

@@ -11,10 +11,19 @@
 #
 # Reads JSON tool input from stdin. Exit 0 always (non-blocking).
 
-set -euo pipefail
+set -uo pipefail
+# NOT `set -e` — under `-e` plus a missing `jq` this exited 127 before printing
+# anything, so the warning it exists to produce never appeared.
+
+# shellcheck source=lib/json-extract.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/json-extract.sh"
 
 PAYLOAD=$(cat)
-COMMAND=$(echo "$PAYLOAD" | jq -r '.tool_input.command // empty')
+
+# This hook only ever warns (always exits 0), so there is no fail-closed branch to
+# take: an unparseable payload means "say nothing", which is the same as its normal
+# quiet path. Using the plain extractor is deliberate, not an oversight.
+COMMAND="$(json_string_value 'command' "$PAYLOAD" || true)"
 
 if [[ -z "$COMMAND" ]]; then
   exit 0
@@ -31,7 +40,7 @@ if echo "$COMMAND" | grep -qE 'ALLOW_MAIN_COMMIT=1'; then
 fi
 
 # Determine current branch from cwd
-CWD=$(echo "$PAYLOAD" | jq -r '.cwd // empty')
+CWD="$(json_string_value 'cwd' "$PAYLOAD" || true)"
 if [[ -z "$CWD" || ! -d "$CWD/.git" ]]; then
   exit 0  # Not a git repo or no cwd info — let it pass
 fi

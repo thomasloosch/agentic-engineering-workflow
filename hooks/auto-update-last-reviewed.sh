@@ -15,10 +15,19 @@
 #
 # Reads JSON tool input from stdin. Exit 0 always.
 
-set -euo pipefail
+set -uo pipefail
+# NOT `set -e` — under `-e` plus a missing `jq` this exited 127, so the date this
+# hook exists to maintain was never updated and the staleness warning it feeds
+# would have fired on a file that had in fact been reviewed.
+
+# shellcheck source=lib/json-extract.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/json-extract.sh"
 
 PAYLOAD=$(cat)
-FILE_PATH=$(echo "$PAYLOAD" | jq -r '.tool_input.file_path // empty')
+
+# PostToolUse maintenance task, never blocks, so an unparseable payload simply
+# means "do nothing" — same as its normal no-match path.
+FILE_PATH="$(json_string_value 'file_path' "$PAYLOAD" || true)"
 
 if [[ -z "$FILE_PATH" ]]; then
   exit 0
