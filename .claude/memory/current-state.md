@@ -61,6 +61,16 @@ individual project repos. Separate from product work (Sovary); used to build it.
   (Sovary/familienkalender) needs it. brand-guardian / performance-auditor /
   qa-testing (visual-brand, bundle/Lighthouse, Playwright live-testing) are web-app
   gates, N/A to CLI/cron — revisit as skills-or-hooks when web work needs them.
+- **ADR-0002 SETTLED 2026-08-17.** Probe ran 3 days / 18 sessions, 300 invocations:
+  PreToolUse 142, PostToolUse 140, SessionStart 18. ALL three lifecycle events fire
+  in the Desktop/MINGW runtime; probe removed. Two consequences: (a) lifecycle hooks
+  are available for real enforcement — several git-native workarounds exist because
+  we believed otherwise; recorded as an option, NOT a refactor to chase, since the
+  git-native guard has its own justification (git runs it regardless of caller);
+  (b) `warn-direct-commit-to-main` RETIRED — exit-0 stderr never surfaces, so it
+  warned no one while reading as coverage, and blocking would contradict ADR-0001.
+  Revisit as a BLOCKING hook only if a project gains collaborators. Rule 10's
+  why-paragraph in the standards doc was corrected (it cited that hook).
 - Enforcement hooks: **ADR-0002 AMENDED 2026-08-14 — they were never dormant
   because of the runtime.** Four of five exited 127 on a missing `jq` (under
   `set -euo pipefail`, at their first extraction line), which Claude Code treats
@@ -195,10 +205,24 @@ individual project repos. Separate from product work (Sovary); used to build it.
     --apply would overwrite every override; a test now kills that mutation).
     `guards.yml` deliberately NOT propagated — it is this repo's own guard-TEST
     suite and would fail on first run in any consumer; a test asserts its absence.
-    **SLICE 2 (learning artifacts) IS PARKED** pending the ADR-0007 ordering
-    decision on #26 — do not build D2a's mirror machinery before that call.
-    Slices 3 (setup-project.sh + bootstrap.conf) and 4 (re-bootstrap jobs-radar)
-    are unblocked.
+    **SLICE 3 DONE (`b6db347`)** — bootstrap emits an owner-run `setup-project.sh`
+    (the only thing that edits package.json / settings.json; refuses on conflict,
+    idempotent) and `.claude/bootstrap.conf` gates components per project with LOUD
+    skips. **SLICE 4 DONE (`7dbd3e9`)** — jobs-radar re-bootstrapped, its
+    two-month-stale standards doc repaired, local secret guard verified blocking
+    there. Two defects found only by running against a real target: bootstrap could
+    not bootstrap ANY real project (`mkdir -p` fails on absolute UNC paths, even for
+    existing dirs — every fixture was a `/tmp` MSYS path, so 100% green and 0%
+    functional; fixed via `scripts/lib/portable-fs.sh`, promoted to verification.md
+    catch **5a**), and `secret_scan=off` did not take effect because `gate_for`
+    matched the generic workflows rule first (now split `secret_scan` /
+    `git_guard`).
+    **SLICE 2 is now nearly empty** — ADR-0007 (ACCEPTED) drops the checklist copies
+    entirely; only the catch-log skeleton placement remains, and it needs #19's
+    artifact added to the asset list.
+    NOTE: jobs-radar's `.gitignore` already excludes the propagated portable assets,
+    so its harness is per-checkout and the standards drift never existed in its git
+    history. That is ADR-0007's split arrived at independently.
   - **#18 semver acceptance harness** — the end-to-end test. Fresh repo, bootstrapped,
     taken PRD -> spec -> gate 1 -> build -> gate 2, validated against a public
     conformance corpus split visible/held-out.
