@@ -166,6 +166,49 @@ $dry"
   fi
 fi
 
+# 4. A v2 manifest is MIGRATED on read, not misread as a project full of missing
+#    files (#17 slice 1).
+#
+#    v2 recorded column 1 relative to .claude/; v3 records it relative to the
+#    project root. Without the migration every v2 entry resolves to a path that
+#    does not exist, so the whole project reports as MISSING — and `--apply` would
+#    then "re-add" over the top of every local override. Verified against the one
+#    real v2 project: 31 unchanged with the migration, 33 re-add without it.
+TESTDIR=$(mktemp -d)
+PROJECT=$(make_project "$TESTDIR")
+REPO=$(make_repo "$TESTDIR")
+if [ -z "$PROJECT" ] || [ -z "$REPO" ]; then
+  fail "v2 manifest is migrated, not read as all-missing" \
+       "could not build the fixture under $TESTDIR"
+else
+  skill_hash=$(sha256sum "$PROJECT/.claude/skills/example/SKILL.md" | cut -d' ' -f1)
+  # A v2 manifest: header says v2, and the path is .claude/-relative.
+  {
+    echo "# Asset manifest — agentic-engineering-workflow"
+    echo "# Format: v2, 3 tab-separated columns (col 3 = repo-root-relative source path)."
+    echo "#"
+    printf 'skills/example/SKILL.md\t%s\t.claude/skills/example/SKILL.md\n' "$skill_hash"
+  } > "$PROJECT/.claude/.asset-manifest"
+
+  out=$(bash "$SYNC" "$PROJECT" --repo "$REPO" 2>&1)
+  rc=$?
+
+  if [ "$rc" -ne 0 ]; then
+    fail "v2 manifest is migrated, not read as all-missing" "sync exited $rc. Output:
+$out"
+  elif printf '%s' "$out" | grep -q 'MISSING'; then
+    fail "v2 manifest is migrated, not read as all-missing" \
+         "the v2 entry resolved to a missing path — --apply would clobber overrides. Output:
+$out"
+  elif ! printf '%s' "$out" | grep -q 'manifest is v2'; then
+    fail "v2 manifest is migrated, not read as all-missing" \
+         "migration happened silently; a format migration must be visible. Output:
+$out"
+  else
+    pass "v2 manifest is migrated, not read as all-missing"
+  fi
+fi
+
 rm -rf "$TESTDIR"
 
 echo ""

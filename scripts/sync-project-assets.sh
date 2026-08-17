@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 #
-# sync-project-assets.sh — refresh a project's workflow-sourced .claude/ assets
-# from the canonical agentic-engineering-workflow repo, WITHOUT silently
-# clobbering local edits.
+# sync-project-assets.sh — refresh a project's workflow-sourced assets from the
+# canonical agentic-engineering-workflow repo, WITHOUT silently clobbering local
+# edits. Assets are not confined to .claude/: the mechanical control set lives at
+# .github/workflows/ and the project root, because GitHub and eslint require
+# those exact locations (manifest v3).
 #
 # Direction: repo (source of truth) -> project (sync target).
 # Authority on what is re-syncable: the project's .claude/.asset-manifest.
@@ -59,6 +61,11 @@ MANIFEST="$PROJECT_PATH/.claude/.asset-manifest"
 PROJECT_CLAUDE="$PROJECT_PATH/.claude"
 REPO_CLAUDE="$REPO_PATH/.claude"
 
+# Manifest v3 records column 1 relative to the PROJECT ROOT, not to .claude/,
+# because the mechanical control set lives outside it (.github/workflows/,
+# eslint.config.js) and v2 had no way to name those files.
+PROJECT_ROOT="$PROJECT_PATH"
+
 # ─── Preconditions ────────────────────────────────────────────────────────────
 [ -d "$PROJECT_CLAUDE" ] || { echo "ERROR: no .claude/ in project: $PROJECT_CLAUDE" >&2; exit 1; }
 [ -d "$REPO_CLAUDE" ]    || { echo "ERROR: no .claude/ in repo: $REPO_CLAUDE" >&2; exit 1; }
@@ -95,6 +102,15 @@ echo
 declare -A RECORDED
 declare -A SRC
 ORDER=()
+
+# v2 recorded column 1 relative to .claude/; v3 records it relative to the project
+# root. Migrate v2 on read by prefixing `.claude/`, so an existing project keeps
+# its provenance and its local overrides rather than having every entry silently
+# resolve to a missing path — which would report the whole project as MISSING and
+# re-add over the top of real overrides.
+IS_V2=0
+grep -q '^# Format: v2' "$MANIFEST" && IS_V2=1
+
 while IFS=$'\t' read -r path hash src; do
   [ -z "${path:-}" ] && continue
   case "$path" in \#*) continue ;; esac
@@ -105,10 +121,13 @@ while IFS=$'\t' read -r path hash src; do
     echo "       Regenerate the manifest (3-column) before using this version." >&2
     exit 1
   fi
+  [ "$IS_V2" -eq 1 ] && path=".claude/$path"
   if [ -z "${RECORDED[$path]+x}" ]; then ORDER+=("$path"); fi
   RECORDED["$path"]="$hash"
   SRC["$path"]="$src"
 done < "$MANIFEST"
+
+[ "$IS_V2" -eq 1 ] && echo "  NOTE: manifest is v2; paths migrated to project-root-relative for this run."
 
 # ─── Fail closed on an entry-less manifest (issue #16) ────────────────────────
 # A manifest with no data rows next to a NON-EMPTY .claude/ tree is not "nothing
@@ -145,7 +164,7 @@ UNKNOWN_HASH='unknown'
 
 for path in "${ORDER[@]}"; do
   a="${RECORDED[$path]}"
-  proj_file="$PROJECT_CLAUDE/$path"
+  proj_file="$PROJECT_ROOT/$path"
   repo_file="$(repo_source_for "$path")"
 
   if [ ! -f "$repo_file" ]; then
@@ -206,7 +225,7 @@ n_add=0
 while IFS=$'\t' read -r rel src _want_exec; do
   [[ -z "${rel:-}" ]] && continue
   [ -n "${RECORDED[$rel]+x}" ] && continue
-  if [ -e "$PROJECT_CLAUDE/$rel" ]; then
+  if [ -e "$PROJECT_ROOT/$rel" ]; then
     echo "  UNTRACKED $rel  (present but in no manifest -> re-run bootstrap to adopt it)"
     continue
   fi
@@ -225,16 +244,16 @@ if [ "$APPLY" -eq 1 ] && { [ "${#TO_UPDATE[@]}" -gt 0 ] || [ "${#TO_READD[@]}" -
   echo "  applying ${#TO_UPDATE[@]} update(s) + ${#TO_READD[@]} re-add(s) + ${#TO_ADD[@]} add(s)..."
   for path in "${TO_UPDATE[@]:-}" "${TO_READD[@]:-}" "${TO_ADD[@]:-}"; do
     [ -z "$path" ] && continue
-    mkdir -p "$(dirname "$PROJECT_CLAUDE/$path")"
-    cp "$(repo_source_for "$path")" "$PROJECT_CLAUDE/$path"
+    mkdir -p "$(dirname "$PROJECT_ROOT/$path")"
+    cp "$(repo_source_for "$path")" "$PROJECT_ROOT/$path"
     # An added asset is new to the manifest, so it needs an ORDER slot as well as
     # a hash — without this it is written to disk and immediately forgotten again.
     if [ -z "${RECORDED[$path]+x}" ]; then ORDER+=("$path"); fi
-    RECORDED["$path"]="$(hash_of "$PROJECT_CLAUDE/$path")"
+    RECORDED["$path"]="$(hash_of "$PROJECT_ROOT/$path")"
     echo "    wrote $path"
   done
 
-  # Rewrite manifest with a CANONICAL v2 header (no comment accretion):
+  # Rewrite manifest with a CANONICAL v3 header (no comment accretion):
   #   - carry forward the immutable "# Generated:" (project birth) if present
   #   - refresh "# Source:" to the repo's CURRENT commit (not the frozen one)
   #   - emit a single "# Re-synced:" line (replaces any prior; never accretes)
@@ -247,12 +266,13 @@ if [ "$APPLY" -eq 1 ] && { [ "${#TO_UPDATE[@]}" -gt 0 ] || [ "${#TO_READD[@]}" -
     echo "# Workflow-sourced files copied at bootstrap, with content hashes."
     echo "# Listed = workflow-sourced/re-syncable. Not listed = project override."
     echo "# Stale if workflow repo's current sha256 for a path != the hash here."
-    echo "# Format: v2, 3 tab-separated columns (col 3 = repo-root-relative source path)."
+    echo "# Format: v3, 3 tab-separated columns (col 1 = PROJECT-ROOT-relative,"
+    echo "#          col 3 = repo-root-relative source path)."
     if [ -n "$gen_line" ]; then echo "$gen_line"; fi
     echo "# Source: agentic-engineering-workflow @ $repo_commit"
     echo "# Re-synced: $(date +%Y-%m-%d) from $REPO_PATH"
     echo "#"
-    printf '# <path-relative-to-.claude/>\t<sha256-at-copy-time>\t<source-path-relative-to-repo-root>\n'
+    printf '# <path-relative-to-project-root>\t<sha256-at-copy-time>\t<source-path-relative-to-repo-root>\n'
     for path in "${ORDER[@]}"; do
       printf '%s\t%s\t%s\n' "$path" "${RECORDED[$path]}" "${SRC[$path]}"
     done

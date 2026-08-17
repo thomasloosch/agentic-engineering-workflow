@@ -107,6 +107,16 @@ n_placed=0; n_refreshed=0; n_override=0; n_adopted=0; n_unknown=0; n_carried=0
 
 load_prior_manifest() {
   [[ -f "$MANIFEST" ]] || return 0
+
+  # Format detection. v2 recorded column 1 relative to .claude/; v3 records it
+  # relative to the PROJECT ROOT, because the mechanical control set lives outside
+  # .claude/ (.github/workflows/, eslint.config.js) and v2 simply could not name
+  # those files. A v2 manifest is migrated on read by prefixing `.claude/`, so an
+  # existing project keeps its provenance and its local overrides instead of being
+  # silently reclassified as untracked — which is the #16 failure all over again.
+  local is_v2=0
+  grep -q '^# Format: v2' "$MANIFEST" && is_v2=1
+
   local path hash src
   while IFS=$'\t' read -r path hash src; do
     [[ -z "${path:-}" ]] && continue
@@ -115,10 +125,14 @@ load_prior_manifest() {
     # A pre-v2 (2-column) row carries no source path. Ignore it rather than
     # misreading column 2 as a source: the asset will be re-derived below.
     [[ -z "${src:-}" ]] && continue
+    [[ "$is_v2" -eq 1 ]] && path=".claude/$path"
     if [[ -z "${PRIOR_HASH[$path]+x}" ]]; then PRIOR_ORDER+=("$path"); fi
     PRIOR_HASH["$path"]="$hash"
     PRIOR_SRC["$path"]="$src"
   done < "$MANIFEST"
+
+  [[ "$is_v2" -eq 1 ]] && echo "       Migrated manifest v2 -> v3 (paths are now project-root-relative)."
+  return 0
 }
 
 record_entry() {  # record_entry <rel-path> <hash> <repo-relative-source>
@@ -128,9 +142,9 @@ record_entry() {  # record_entry <rel-path> <hash> <repo-relative-source>
 }
 
 place_asset() {
-  # place_asset <absolute-source-in-workflow-repo> <path-relative-to-.claude/> [exec]
+  # place_asset <absolute-source-in-workflow-repo> <path-relative-to-PROJECT-ROOT> [exec]
   local src="$1" rel="$2" want_exec="${3:-}"
-  local target="$PROJECT_PATH/.claude/$rel"
+  local target="$PROJECT_PATH/$rel"
   local srcrel="${src#"$WORKFLOW_DIR"/}"
   local a b c
 
@@ -196,13 +210,15 @@ write_manifest() {
     echo "# Workflow-sourced files copied at bootstrap, with content hashes."
     echo "# Listed = workflow-sourced/re-syncable. Not listed = project override."
     echo "# Stale if workflow repo's current sha256 for a path != the hash here."
-    echo "# Format: v2, 3 tab-separated columns (col 3 = repo-root-relative source path)."
+    echo "# Format: v3, 3 tab-separated columns (col 1 = PROJECT-ROOT-relative,"
+    echo "#          col 3 = repo-root-relative source path). v2 used .claude/-relative"
+    echo "#          col 1 and could not name .github/workflows/ or eslint.config.js."
     echo "# A hash of '$UNKNOWN_HASH' means provenance could not be determined —"
     echo "# resolve by hand; sync will not auto-update those entries."
     echo "# Generated: $(date -I)"
     echo "# Source: agentic-engineering-workflow @ $SOURCE_COMMIT"
     echo "#"
-    printf '# <path-relative-to-.claude/>\t<sha256-at-copy-time>\t<source-path-relative-to-repo-root>\n'
+    printf '# <path-relative-to-project-root>\t<sha256-at-copy-time>\t<source-path-relative-to-repo-root>\n'
     for path in "${NEW_ORDER[@]:-}"; do
       [[ -z "$path" ]] && continue
       printf '%s\t%s\t%s\n' "$path" "${NEW_HASH[$path]}" "${NEW_SRC[$path]}"

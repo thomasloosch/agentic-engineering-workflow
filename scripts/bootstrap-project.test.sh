@@ -85,14 +85,14 @@ if [ -z "$PROJECT" ]; then
   fail "owner override keeps its original recorded hash" "could not create the temp project"
 else
   run_bootstrap "$PROJECT" "Probe Two"
-  tracked="skills/tdd/SKILL.md"
+  tracked=".claude/skills/tdd/SKILL.md"   # manifest v3: project-root-relative
   before=$(awk -F'\t' -v p="$tracked" '$1==p{print $2}' "$PROJECT/.claude/.asset-manifest")
 
-  printf -- '\nOWNER EDIT\n' >> "$PROJECT/.claude/$tracked"
+  printf -- '\nOWNER EDIT\n' >> "$PROJECT/$tracked"
   run_bootstrap "$PROJECT" "Probe Two"
 
   after=$(awk -F'\t' -v p="$tracked" '$1==p{print $2}' "$PROJECT/.claude/.asset-manifest")
-  edit_survived=$(tail -1 "$PROJECT/.claude/$tracked")
+  edit_survived=$(tail -1 "$PROJECT/$tracked")
 
   if [ -z "$before" ]; then
     fail "owner override keeps its original recorded hash" \
@@ -105,6 +105,50 @@ else
          "recorded hash changed: before=$before after=$after"
   else
     pass "owner override keeps its original recorded hash"
+  fi
+fi
+
+# 3. Assets OUTSIDE .claude/ are placed and tracked (#17 slice 1).
+#
+#    The manifest's first column was ".claude/-relative", and both bootstrap and
+#    sync resolved it against <project>/.claude. That made the mechanical control
+#    set impossible to express: GitHub only reads workflows at
+#    .github/workflows/, and eslint only discovers its config at the project
+#    root. Neither path can be written as a .claude/-relative string.
+#
+#    So column 1 is now PROJECT-ROOT-relative (manifest v3). This test pins the
+#    property that forced the change: a root-level asset lands at the root and is
+#    tracked like any other, so drift in it is detectable.
+PROJECT=$(make_project "$TESTDIR" "probe-three")
+if [ -z "$PROJECT" ]; then
+  fail "assets outside .claude/ are placed and tracked" "could not create the temp project"
+else
+  run_bootstrap "$PROJECT" "Probe Three"
+
+  missing=""
+  [ -f "$PROJECT/eslint.config.js" ] || missing="$missing eslint.config.js"
+  [ -f "$PROJECT/.github/workflows/secret-scan.yml" ] || missing="$missing .github/workflows/secret-scan.yml"
+
+  # guards.yml must NOT be propagated: it is the workflow repo's own guard-test
+  # suite and references scripts a consumer project does not have, so installing
+  # it would create a workflow that fails on its first run.
+  [ -f "$PROJECT/.github/workflows/guards.yml" ] && \
+    fail "assets outside .claude/ are placed and tracked" \
+         "guards.yml was propagated; it is workflow-repo-only and would fail on arrival"
+
+  untracked=""
+  for p in "eslint.config.js" ".github/workflows/secret-scan.yml"; do
+    grep -q "^$(printf '%s' "$p" | sed 's/[.[\*^$]/\\&/g')	" "$PROJECT/.claude/.asset-manifest" \
+      || untracked="$untracked $p"
+  done
+
+  if [ -n "$missing" ]; then
+    fail "assets outside .claude/ are placed and tracked" "not placed:$missing"
+  elif [ -n "$untracked" ]; then
+    fail "assets outside .claude/ are placed and tracked" \
+         "placed but absent from the manifest (invisible to drift detection):$untracked"
+  else
+    pass "assets outside .claude/ are placed and tracked"
   fi
 fi
 
