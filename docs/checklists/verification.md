@@ -58,6 +58,22 @@ symptom.
    exec-bit bug survived *every* unit test precisely because the tests used `bash`,
    which never sees the mode. Green through the wrong invocation path is worse than
    red — it buys false confidence.
+
+   **5a. The fixture is part of the invocation path.** *(Added 2026-08-17 on the
+   third instance of this parent — promoted from the catch-log per its rule-of-three.)*
+   A test whose fixture never resembles the real target verifies a path production
+   never takes, even when the invocation *method* is correct. `bootstrap-project.sh`
+   passed its entire suite while being unable to bootstrap any real project: every
+   fixture came from `mktemp -d`, which returns an MSYS path (`/tmp/...`), and
+   `mkdir -p` works there. Every actual project lives on a UNC path
+   (`//wsl.localhost/...`), where `mkdir -p` fails outright — even on a directory
+   that already exists. 100% green, 0% functional.
+
+   *Mechanical check:* at least one fixture must exercise the **path shape
+   production uses**. For this repo that means a UNC-rooted fixture, not only a
+   `mktemp -d` one. More generally: if the environment has a characteristic that
+   the code must handle (path form, filesystem semantics, line endings, locale),
+   one fixture has to carry it, or that characteristic is untested by construction.
 6. **Test isolation** — test/eval scripts must operate on `mktemp -d` fixtures, never
    the live repo / index / data store. Guard `cd` with `|| exit`; do not lean on
    `set -e` (it does not reliably abort a bare `cd`, and a silently-failed `cd`

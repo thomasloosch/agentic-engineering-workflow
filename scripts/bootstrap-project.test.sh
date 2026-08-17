@@ -229,19 +229,52 @@ PROJECT=$(make_project "$TESTDIR" "probe-five")
 if [ -z "$PROJECT" ]; then
   fail "bootstrap.conf ci=off omits the workflows and exits 0" "could not create the temp project"
 else
-  mkdir -p "$PROJECT/.claude"
+  ( cd "$PROJECT" || exit 1; mkdir -p .claude )
   printf 'ci=off\n' > "$PROJECT/.claude/bootstrap.conf"
   out=$(bash "$BOOTSTRAP" "$PROJECT" "Probe Five" 2>&1)
   rc=$?
+  # `ci` gates the consumer's CI template. It deliberately does NOT gate
+  # secret-scan.yml — that has its own switch, because the two have different
+  # preconditions (the secret scan is blocking and wants a history baseline first).
   if [ "$rc" -ne 0 ]; then
-    fail "bootstrap.conf ci=off omits the workflows and exits 0" "exited $rc"
-  elif [ -e "$PROJECT/.github/workflows/secret-scan.yml" ]; then
-    fail "bootstrap.conf ci=off omits the workflows and exits 0" "the workflow was installed anyway"
-  elif ! printf '%s' "$out" | grep -qi 'ci=off\|skipping ci'; then
-    fail "bootstrap.conf ci=off omits the workflows and exits 0" \
+    fail "bootstrap.conf ci=off omits the CI template and exits 0" "exited $rc"
+  elif [ -e "$PROJECT/.claude/ci/ci.yml.template" ]; then
+    fail "bootstrap.conf ci=off omits the CI template and exits 0" "the CI template was installed anyway"
+  elif [ ! -f "$PROJECT/.github/workflows/secret-scan.yml" ]; then
+    fail "bootstrap.conf ci=off omits the CI template and exits 0" \
+         "ci=off also disabled the secret scan — those are separate switches"
+  elif ! printf '%s' "$out" | grep -qi "ci=off"; then
+    fail "bootstrap.conf ci=off omits the CI template and exits 0" \
          "component was skipped SILENTLY — an inapplicable guard must be visible in the log"
   else
-    pass "bootstrap.conf ci=off omits the workflows and exits 0"
+    pass "bootstrap.conf ci=off omits the CI template and exits 0"
+  fi
+fi
+
+# 7. secret_scan=off must stop the secret-scan WORKFLOW, not just the local guard.
+#    Regression case for a real defect: gate_for matched `.github/workflows/*` -> ci
+#    before the specific rule, so setting secret_scan=off installed the blocking
+#    workflow anyway. That was found on the first run against a real repo whose
+#    history has never had a gitleaks baseline — the precise hazard the switch was
+#    set to avoid. A switch that does not take effect is worse than no switch.
+PROJECT=$(make_project "$TESTDIR" "probe-six")
+if [ -z "$PROJECT" ]; then
+  fail "secret_scan=off stops the secret-scan workflow" "could not create the temp project"
+else
+  ( cd "$PROJECT" || exit 1; mkdir -p .claude )
+  printf 'secret_scan=off\n' > "$PROJECT/.claude/bootstrap.conf"
+  out=$(bash "$BOOTSTRAP" "$PROJECT" "Probe Six" 2>&1)
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
+    fail "secret_scan=off stops the secret-scan workflow" "exited $rc"
+  elif [ -e "$PROJECT/.github/workflows/secret-scan.yml" ]; then
+    fail "secret_scan=off stops the secret-scan workflow" \
+         "the BLOCKING workflow was installed despite the switch being off"
+  elif [ ! -f "$PROJECT/.claude/ci/check-imports.mjs" ]; then
+    fail "secret_scan=off stops the secret-scan workflow" \
+         "it also disabled unrelated components — the gate is too broad"
+  else
+    pass "secret_scan=off stops the secret-scan workflow"
   fi
 fi
 

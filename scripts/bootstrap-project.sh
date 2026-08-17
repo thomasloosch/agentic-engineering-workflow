@@ -49,6 +49,10 @@ WORKFLOW_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # is extracted rather than duplicated into this script and the sync script).
 # shellcheck source=lib/asset-list.sh
 source "$WORKFLOW_DIR/scripts/lib/asset-list.sh"
+# UNC-safe directory creation — see the file header for why plain `mkdir -p` cannot
+# be used on this repo's real paths.
+# shellcheck source=lib/portable-fs.sh
+source "$WORKFLOW_DIR/scripts/lib/portable-fs.sh"
 echo "Workflow repo: $WORKFLOW_DIR"
 echo "Target project: $PROJECT_PATH"
 echo "Project name: $PROJECT_NAME"
@@ -89,16 +93,31 @@ component_on() {
 }
 
 # Which config key gates a given asset path. Returns empty for ungated assets.
+#
+# ORDER MATTERS. The secret-scan WORKFLOW must be matched before the generic
+# .github/workflows/* rule, or `secret_scan=off` silently fails to stop it and the
+# workflow installs anyway — which is exactly what happened on the first real run
+# against jobs-radar, whose history has never had a gitleaks baseline. Setting a
+# switch and assuming it took effect is the same present-vs-working confusion this
+# harness keeps producing; the test below now pins it.
+#
+# `secret_scan` and `git_guard` are deliberately SEPARATE keys. The CI workflow is
+# blocking and needs a full-history baseline before it is safe to enable on an
+# existing repo. The local pre-commit guard is fast, fail-closed feedback with no
+# such precondition — gating both on one switch would mean turning off the harmless
+# one to defer the risky one.
 gate_for() {
   case "$1" in
-    .github/workflows/*)          echo ci ;;
-    eslint.config.js)             echo lint ;;
-    .claude/ci/run-tests.mjs)     echo test ;;
-    .claude/ci/observe.mjs)       echo observe ;;
-    .claude/ci/check-imports.mjs) echo import_guard ;;
-    .claude/git-hooks/*)          echo secret_scan ;;
+    .github/workflows/secret-scan.yml) echo secret_scan ;;
+    .github/workflows/*)               echo ci ;;
+    .claude/ci/ci.yml.template)        echo ci ;;
+    eslint.config.js)                  echo lint ;;
+    .claude/ci/run-tests.mjs)          echo test ;;
+    .claude/ci/observe.mjs)            echo observe ;;
+    .claude/ci/check-imports.mjs)      echo import_guard ;;
+    .claude/git-hooks/*)               echo git_guard ;;
     .claude/tdd/*|.claude/hooks/rotate-tdd-session-log.sh) echo tdd_gate ;;
-    *)                            echo "" ;;
+    *)                                 echo "" ;;
   esac
 }
 
@@ -203,7 +222,7 @@ place_asset() {
     return 0
   fi
   c="$(hash_of "$src")"
-  mkdir -p "$(dirname "$target")"
+  ensure_dir "$PROJECT_PATH" "$(dirname "$rel")"
 
   install_it() {
     cp "$src" "$target"
@@ -279,7 +298,13 @@ write_manifest() {
 # ─── Step 1: Create .claude/ structure ────────────────────────────────────────
 
 echo "[1/13] Creating .claude/ directory structure..."
-mkdir -p "$PROJECT_PATH/.claude/"{agents,skills,commands,memory,logs,rules,tdd,hooks}
+# Created RELATIVE, from inside the project. `mkdir -p` on an absolute UNC path
+# (//wsl.localhost/...) makes MSYS walk up and attempt to create the share root
+# itself, which fails "Read-only file system" and takes the whole bootstrap with it.
+# That is not hypothetical: this repo and its projects live on exactly such a path,
+# so bootstrap was broken for every real target while passing every /tmp fixture.
+( cd "$PROJECT_PATH" && mkdir -p .claude/{agents,skills,commands,memory,logs,rules,tdd,hooks} ) \
+  || { echo "Error: could not create .claude/ structure in $PROJECT_PATH" >&2; exit 1; }
 load_prior_manifest   # read BEFORE anything is written; manifest is rewritten at the end
 load_conf             # per-project component switches (.claude/bootstrap.conf)
 echo "       Done."
@@ -533,7 +558,7 @@ if [[ -f "$PR_TEMPLATE_DST" ]]; then
 elif [[ ! -f "$PR_TEMPLATE_SRC" ]]; then
   echo "        WARN: PR template not found at $PR_TEMPLATE_SRC — skipping."
 else
-  mkdir -p "$PROJECT_PATH/.github"
+  ensure_dir "$PROJECT_PATH" ".github"
   cp "$PR_TEMPLATE_SRC" "$PR_TEMPLATE_DST"
   echo "        Copied PR template."
 fi

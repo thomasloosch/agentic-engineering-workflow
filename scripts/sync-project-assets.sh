@@ -77,6 +77,8 @@ hash_of() { sha256sum "$1" | cut -d' ' -f1; }
 # installs from, so this tool cannot go blind to assets the installer knows about.
 # shellcheck source=lib/asset-list.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/asset-list.sh"
+# shellcheck source=lib/portable-fs.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/portable-fs.sh"
 
 # Resolve a manifest path to its repo source, read from the manifest's 3rd
 # column (recorded at copy time by bootstrap). No hardcoded special-cases:
@@ -244,7 +246,7 @@ if [ "$APPLY" -eq 1 ] && { [ "${#TO_UPDATE[@]}" -gt 0 ] || [ "${#TO_READD[@]}" -
   echo "  applying ${#TO_UPDATE[@]} update(s) + ${#TO_READD[@]} re-add(s) + ${#TO_ADD[@]} add(s)..."
   for path in "${TO_UPDATE[@]:-}" "${TO_READD[@]:-}" "${TO_ADD[@]:-}"; do
     [ -z "$path" ] && continue
-    mkdir -p "$(dirname "$PROJECT_ROOT/$path")"
+    ensure_dir "$PROJECT_ROOT" "$(dirname "$path")"
     cp "$(repo_source_for "$path")" "$PROJECT_ROOT/$path"
     # An added asset is new to the manifest, so it needs an ORDER slot as well as
     # a hash — without this it is written to disk and immediately forgotten again.

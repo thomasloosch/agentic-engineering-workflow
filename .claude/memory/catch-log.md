@@ -36,7 +36,7 @@ project's own history and do not travel.
 | class | meaning | origin |
 |---|---|---|
 | `fail-open-guard` | a guard/detector reports "clean" while not actually tracking or checking what it claims to | #16 |
-| `wrong-invocation-path` | a test observes the artifact through a path production doesn't use, and misses what that real path would catch | verification.md catch 5 (catch 4 is its documented special case) |
+| `wrong-invocation-path` | a test observes the artifact through a path production doesn't use — wrong invocation METHOD, or a fixture whose SHAPE production never has — and misses what the real path would catch | verification.md catch 5 + 5a (catch 4 is a documented special case) |
 | `vacuous-test` | a test/guard stays green even with the thing it protects stubbed out or broken | verification.md catch 3 |
 | `unobservable-AC` | an acceptance criterion names no instrument that can actually read it | verification.md catch 7 (origin: #8) |
 | `premise-drift` | an issue or plan is built against a premise that moved since it was written | #8 §0 rescope; Stage-3 handoff, "3 of 5 issues" |
@@ -109,8 +109,6 @@ the test is whether the same fix addresses both — see `vacuous-test` vs
 |---|---|---|---|---|
 | 2026-08-13 | Bootstrap re-run emptied the asset manifest (37 → 0); sync then reported a clean bill of health. Root cause: a file's mere presence on disk was read as "local override," and the manifest was truncated before re-derivation, so preserved-and-unrecorded meant permanently dropped. | agent-self | fail-open-guard | fixed+regression-case |
 | 2026-07-22 | The guard's own tests still passed with the guard stubbed to always-pass — the negative cases were vacuous. | human | vacuous-test | fixed |
-| 2026-07-22 | New `*.sh` scripts land at file mode 100644 from the agent's file-creation path; exec bit is never set by that path. | human | wrong-invocation-path | fixed |
-| 2026-07-22 | Guard tests invoked it via `bash <script>`, which cannot observe file mode — tests stayed green while the real, git-invoked hook was inert. | human | wrong-invocation-path | fixed |
 | 2026-07-17 | A negative test mutated the live git index when a `cd` failed silently under `set -e` (test ran against live state, not an isolated `mktemp -d` fixture). | human | unsafe-test-isolation | fixed |
 | 2026-08-13 | #16's own re-run regression test stayed green when the prior-manifest-load code was disabled — every file fell back to "untracked but identical to the repo" and got adopted, so the entry *count* survived by a different path. The test proved less than it looked like it did. | agent-self | vacuous-test | fixed+regression-case |
 | 2026-08-13 | — | — | `artifact-vs-effect` | promoted -> verification.md catch 1, 3 rows (2 human, 1 agent-self), 2026-08-13 |
@@ -120,6 +118,8 @@ the test is whether the same fix addresses both — see `vacuous-test` vs
 | 2026-08-14 | First version of the "no hook invokes jq" assertion matched the word `jq` in the new explanatory comments and in the test file itself, reporting all four fixed hooks as still broken. A false RED. | automatic-gate | overbroad-assertion | fixed |
 | 2026-08-14 | The revived block-git-add-all refused the first real commit made after reviving it, because the commit message documented the `git add -A` probe used to verify it. The guard inspects the raw command string, so writing about the guard tripped the guard. Heredoc bodies now stripped before matching; quoted strings deliberately still matched, since ignoring them would make `git add "."` a trivial bypass. | automatic-gate | overbroad-assertion | fixed+regression-case |
 | 2026-08-14 | First attempt at stripping heredoc bodies used `sed`, which applies its script per line, so `.*$` stopped at the first newline and left the entire heredoc body — the thing it existed to remove — intact. Silently did nothing for its only use case; caught by the test that had just been written for it. | automatic-gate | artifact-vs-effect | fixed |
+| 2026-08-17 | — | — | `wrong-invocation-path` | promoted -> verification.md catch **5a**, 3 rows (2 human, 1 agent-self), 2026-08-17 |
+| 2026-08-17 | Set `secret_scan=off` in jobs-radar's bootstrap.conf to avoid installing a blocking gitleaks workflow on a repo whose history has never been scanned — and the workflow installed anyway, because `gate_for` matched the generic `.github/workflows/*` -> `ci` rule before the specific one. A switch set, believed effective, and silently inert. Split into separate `secret_scan` and `git_guard` keys; regression case added. | agent-self | artifact-vs-effect | fixed+regression-case |
 | 2026-08-14 | `guards.yml` was about to be propagated to consumer projects as part of the mechanical control set. It is the workflow repo's own guard-TEST suite and runs three scripts no consumer has, so it would have installed CI that fails on first run — present, red, and training the owner to ignore CI. Caught by reading the file's own header before shipping it. | agent-self | artifact-vs-effect | fixed+regression-case |
 | 2026-08-14 | Reported a planted-secret probe's exit status from a piped command, so the printed code belonged to the last process in the pipe rather than to git. Ground truth (no commit created) was checked separately and did confirm the block, but the stated evidence measured the wrong process. | agent-self | artifact-vs-effect | fixed |
 
@@ -147,10 +147,11 @@ outcome text** (done above), so a full-corpus count is still "from the file
 alone, no external context" — it costs one extra line to read, not a
 git-history lookup.
 
-**Current corpus (updated 2026-08-14, after #17 slice 1).** 14 individually
-visible rows (agent-self: 5, human: 6, automatic-gate: 3) **plus** the collapsed
-row's breakdown (agent-self: 1, human: 2) = **agent-self: 6, human: 8,
-automatic-gate: 3** across 17 catches.
+**Current corpus (updated 2026-08-17, after #17 slices 3-4).** 13 individually
+visible rows (agent-self: 6, human: 4, automatic-gate: 3) **plus** two collapsed
+promotion lines (`artifact-vs-effect`: 2 human + 1 agent-self; `wrong-invocation-path`:
+2 human + 1 agent-self) = **agent-self: 8, human: 8, automatic-gate: 3** across
+19 catches.
 
 Read that number carefully, because it is not the #18 measurement and must not
 be quoted as one. It mixes three unlike things: a retrospective backfill of six
@@ -213,7 +214,7 @@ Counted per the rules above — promoted classes excluded, adjacent classes not 
 | `fail-open-guard` | 2 (#16 manifest, the dead hooks) | **1 away.** Two builds, two instances, both invisible until something probed for *effect* rather than *presence*. The likeliest next promotion. |
 | `overbroad-assertion` | 2 (jq-in-comments, heredoc false positive) | 1 away — both from this build, both false REDs from an assertion matching data rather than the property claimed |
 | `vacuous-test` | 2 | 1 away |
-| `wrong-invocation-path` | 2 | 1 away |
+| `wrong-invocation-path` | 2 collapsed + 1 new | **promoted 2026-08-17** -> catch 5a. Third instance was a fixture-shape problem, not an invocation-method one — a genuinely new special case under the same parent, which is why the promotion had content rather than pointing at an existing line. |
 | `premise-drift` | 1 | 2 away |
 | `silent-truncation` | 1 | 2 away |
 | `unsafe-test-isolation` | 1 | 2 away |
@@ -225,5 +226,5 @@ produce its EFFECT, not merely to be present and exit non-zero"* — which
 does not state as a general requirement about guards that die before their own
 logic.
 
-*Archive: none yet — 14 individual rows + 1 collapsed promotion line = 17 catches
+*Archive: none yet — 13 individual rows + 2 collapsed promotion lines = 19 catches
 accounted for, cap is 50 live rows.*
