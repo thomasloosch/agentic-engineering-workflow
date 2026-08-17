@@ -152,6 +152,99 @@ else
   fi
 fi
 
+# 4. bootstrap EMITS setup-project.sh, and does not itself touch package.json
+#    (#17 slice 3, decision D1).
+#
+#    The split exists so there is exactly one thing that edits owner-owned files,
+#    and the owner runs it deliberately. bootstrap copies and records; the emitted
+#    script wires. If bootstrap ever edits package.json directly, the no-edit
+#    default is gone and nobody notices until it clobbers something.
+PROJECT=$(make_project "$TESTDIR" "probe-four")
+if [ -z "$PROJECT" ]; then
+  fail "bootstrap emits setup-project.sh and never edits package.json" "could not create the temp project"
+else
+  printf '{\n  "name": "probe-four",\n  "scripts": {\n    "start": "node index.js"\n  }\n}\n' \
+    > "$PROJECT/package.json"
+  before=$(sha256sum "$PROJECT/package.json" | cut -d' ' -f1)
+
+  run_bootstrap "$PROJECT" "Probe Four"
+
+  after=$(sha256sum "$PROJECT/package.json" | cut -d' ' -f1)
+  problems=""
+  [ -f "$PROJECT/setup-project.sh" ] || problems="$problems setup-project.sh-not-emitted"
+  [ -x "$PROJECT/setup-project.sh" ] || problems="$problems setup-project.sh-not-executable"
+  [ "$before" = "$after" ] || problems="$problems package.json-was-modified-by-bootstrap"
+
+  if [ -n "$problems" ]; then
+    fail "bootstrap emits setup-project.sh and never edits package.json" "$problems"
+  else
+    pass "bootstrap emits setup-project.sh and never edits package.json"
+  fi
+fi
+
+# 5. setup-project.sh wires package.json when the owner runs it, and is idempotent.
+#    Idempotence matters because the owner will re-run it after a re-bootstrap; a
+#    second run appending a duplicate script block would corrupt the manifest file
+#    that npm reads.
+if [ -n "${PROJECT:-}" ] && [ -x "$PROJECT/setup-project.sh" ]; then
+  ( cd "$PROJECT" || exit 1; ./setup-project.sh --yes ) >/dev/null 2>&1
+  rc1=$?
+  first=$(sha256sum "$PROJECT/package.json" | cut -d' ' -f1)
+  ( cd "$PROJECT" || exit 1; ./setup-project.sh --yes ) >/dev/null 2>&1
+  second=$(sha256sum "$PROJECT/package.json" | cut -d' ' -f1)
+
+  # Read package.json through a pipe rather than by path. node here is the Windows
+  # build and cannot resolve an MSYS path like /tmp/... — passing the path directly
+  # yields a spurious failure that looks like a product bug. cat is MSYS-side, so
+  # the path is resolved by the shell that understands it.
+  read_script() {  # read_script <script-name> ; echoes its value or ""
+    cat "$PROJECT/package.json" | node -e '
+      let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+        try{const j=JSON.parse(s);process.stdout.write(((j.scripts||{})[process.argv[1]])||"")}
+        catch(e){process.stdout.write("PARSE_ERROR")}
+      })' "$1" 2>/dev/null
+  }
+  test_val=$(read_script test)
+  start_val=$(read_script start)
+  has_test=n;    [ -n "$test_val" ] && [ "$test_val" != "PARSE_ERROR" ] && has_test=y
+  kept_start=n;  [ "$start_val" = "node index.js" ] && kept_start=y
+
+  if [ "$rc1" -ne 0 ]; then
+    fail "setup-project.sh wires package.json idempotently" "first run exited $rc1"
+  elif [ "$has_test" != "y" ]; then
+    fail "setup-project.sh wires package.json idempotently" "no 'test' script was added (got: $has_test)"
+  elif [ "$kept_start" != "y" ]; then
+    fail "setup-project.sh wires package.json idempotently" "clobbered the owner's existing 'start' script"
+  elif [ "$first" != "$second" ]; then
+    fail "setup-project.sh wires package.json idempotently" "second run changed the file — not idempotent"
+  else
+    pass "setup-project.sh wires package.json idempotently"
+  fi
+else
+  fail "setup-project.sh wires package.json idempotently" "no emitted script to run"
+fi
+
+# 6. bootstrap.conf gates a component off, loudly, without erroring (#17 D3/D4).
+PROJECT=$(make_project "$TESTDIR" "probe-five")
+if [ -z "$PROJECT" ]; then
+  fail "bootstrap.conf ci=off omits the workflows and exits 0" "could not create the temp project"
+else
+  mkdir -p "$PROJECT/.claude"
+  printf 'ci=off\n' > "$PROJECT/.claude/bootstrap.conf"
+  out=$(bash "$BOOTSTRAP" "$PROJECT" "Probe Five" 2>&1)
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
+    fail "bootstrap.conf ci=off omits the workflows and exits 0" "exited $rc"
+  elif [ -e "$PROJECT/.github/workflows/secret-scan.yml" ]; then
+    fail "bootstrap.conf ci=off omits the workflows and exits 0" "the workflow was installed anyway"
+  elif ! printf '%s' "$out" | grep -qi 'ci=off\|skipping ci'; then
+    fail "bootstrap.conf ci=off omits the workflows and exits 0" \
+         "component was skipped SILENTLY — an inapplicable guard must be visible in the log"
+  else
+    pass "bootstrap.conf ci=off omits the workflows and exits 0"
+  fi
+fi
+
 rm -rf "$TESTDIR"
 
 echo ""

@@ -54,6 +54,56 @@ echo "Target project: $PROJECT_PATH"
 echo "Project name: $PROJECT_NAME"
 echo ""
 
+# ─── Per-project component config (#17 D3) ────────────────────────────────────
+# .claude/bootstrap.conf is a committed key=value file declaring which components
+# apply to this project. Committed rather than gitignored so the decision is
+# reviewable and a clone or re-bootstrap reproduces it.
+#
+# Defaults are all `on`. A component turned off is skipped LOUDLY (D4) — the same
+# contract check-imports.mjs already honours, because an inapplicable guard that
+# vanishes silently is indistinguishable from one that ran and passed. This whole
+# program's most frequent defect class is exactly that confusion.
+#
+# Keys: lint · test · ci · secret_scan · import_guard · tdd_gate · observe ·
+#       checklists · catch_log
+declare -A CONF
+CONF_FILE="$PROJECT_PATH/.claude/bootstrap.conf"
+
+load_conf() {
+  [[ -f "$CONF_FILE" ]] || return 0
+  local line key val
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%%#*}"                       # strip comments
+    line="${line//[[:space:]]/}"             # strip all whitespace
+    [[ -z "$line" ]] && continue
+    key="${line%%=*}"; val="${line#*=}"
+    [[ -z "$key" || "$key" == "$line" ]] && continue
+    CONF["$key"]="$val"
+  done < "$CONF_FILE"
+}
+
+# component_on <key> — true unless explicitly set to off/false/0/no
+component_on() {
+  local v="${CONF[$1]:-on}"
+  case "$v" in off|false|0|no) return 1 ;; *) return 0 ;; esac
+}
+
+# Which config key gates a given asset path. Returns empty for ungated assets.
+gate_for() {
+  case "$1" in
+    .github/workflows/*)          echo ci ;;
+    eslint.config.js)             echo lint ;;
+    .claude/ci/run-tests.mjs)     echo test ;;
+    .claude/ci/observe.mjs)       echo observe ;;
+    .claude/ci/check-imports.mjs) echo import_guard ;;
+    .claude/git-hooks/*)          echo secret_scan ;;
+    .claude/tdd/*|.claude/hooks/rotate-tdd-session-log.sh) echo tdd_gate ;;
+    *)                            echo "" ;;
+  esac
+}
+
+declare -A SKIPPED_GATES
+
 # ─── Asset manifest setup ─────────────────────────────────────────────────────
 # Records every workflow-sourced file copied into the project, with the SHA256 it
 # had at copy time. A file listed here is workflow-sourced and re-syncable; a file
@@ -231,6 +281,7 @@ write_manifest() {
 echo "[1/13] Creating .claude/ directory structure..."
 mkdir -p "$PROJECT_PATH/.claude/"{agents,skills,commands,memory,logs,rules,tdd,hooks}
 load_prior_manifest   # read BEFORE anything is written; manifest is rewritten at the end
+load_conf             # per-project component switches (.claude/bootstrap.conf)
 echo "       Done."
 
 # ─── Steps 2-6: Place every workflow asset ────────────────────────────────────
@@ -254,8 +305,19 @@ echo "       Done."
 echo "[2-6/13] Placing workflow assets..."
 while IFS=$'\t' read -r rel src want_exec; do
   [[ -z "${rel:-}" ]] && continue
+  gate="$(gate_for "$rel")"
+  if [[ -n "$gate" ]] && ! component_on "$gate"; then
+    SKIPPED_GATES["$gate"]=1
+    continue
+  fi
   place_asset "$src" "$rel" "${want_exec:-}"
 done < <(enumerate_workflow_assets "$WORKFLOW_DIR")
+
+# Loud skip (D4). A component switched off must be VISIBLE in the log — a guard
+# that silently isn't there reads exactly like a guard that ran and passed.
+for gate in "${!SKIPPED_GATES[@]}"; do
+  echo "       SKIPPED component '$gate=off' (per .claude/bootstrap.conf) — its assets were NOT installed."
+done
 echo "       Done."
 
 # The guard FILE is placed by the loop above; what remains here is the WIRING,
@@ -478,10 +540,184 @@ fi
 
 # ─── Done ─────────────────────────────────────────────────────────────────────
 
+# ─── Emit setup-project.sh (#17 slice 3, decision D1) ─────────────────────────
+# Bootstrap copies and records; it NEVER edits owner-owned files. The wiring that
+# does have to touch package.json and .claude/settings.json is emitted here as a
+# script the OWNER runs once, deliberately. That is what makes "bootstrap does not
+# edit package.json" a property of the design rather than a promise: there is
+# exactly one thing that edits those files, and a human invokes it.
+#
+# Refuse-on-conflict, print a diff, and be idempotent — the owner will re-run it
+# after a re-bootstrap, and a second run that appended a duplicate script block
+# would corrupt the file npm reads.
+SETUP_DST="$PROJECT_PATH/setup-project.sh"
+cat > "$SETUP_DST" << 'SETUPEOF'
+#!/usr/bin/env bash
+#
+# setup-project.sh — owner-run wiring for the agentic-engineering-workflow harness.
+# EMITTED by bootstrap-project.sh; safe to re-run (idempotent).
+#
+# Bootstrap deliberately does not edit package.json or .claude/settings.json —
+# those are yours. This script does, and only because you ran it.
+#
+# Usage:
+#   ./setup-project.sh            # show what would change, then ask
+#   ./setup-project.sh --yes      # apply without asking (for scripts/CI)
+#   ./setup-project.sh --dry-run  # show what would change and exit
+set -uo pipefail
+
+ASSUME_YES=0
+DRY_RUN=0
+for a in "$@"; do
+  case "$a" in
+    --yes|-y)  ASSUME_YES=1 ;;
+    --dry-run) DRY_RUN=1 ;;
+    *) echo "Unknown flag: $a" >&2; exit 2 ;;
+  esac
+done
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT" || exit 1
+
+changes=()
+conflicts=()
+
+# ── package.json scripts ──────────────────────────────────────────────────────
+# cross-env is required for the tdd script: TDD_RECORD=1 inline is not portable to
+# Windows shells, and this harness runs on one.
+want_scripts_json='{
+  "test": "node .claude/ci/run-tests.mjs",
+  "tdd": "cross-env TDD_RECORD=1 node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./.claude/tdd/tdd-recorder.js --test-reporter-destination=stdout",
+  "lint": "node node_modules/eslint/bin/eslint.js .",
+  "observe": "node .claude/ci/observe.mjs"
+}'
+
+if [ -f package.json ]; then
+  plan="$(node -e '
+    const fs=require("fs");
+    const want=JSON.parse(process.argv[1]);
+    let pkg; try { pkg=JSON.parse(fs.readFileSync("package.json","utf8")); }
+    catch(e){ console.log("PARSE_ERROR"); process.exit(0); }
+    const have=pkg.scripts||{};
+    const add=[],conflict=[];
+    for(const[k,v]of Object.entries(want)){
+      if(have[k]===undefined) add.push(k);
+      else if(have[k]!==v) conflict.push(k);
+    }
+    console.log(JSON.stringify({add,conflict}));
+  ' "$want_scripts_json")"
+
+  if [ "$plan" = "PARSE_ERROR" ]; then
+    echo "✖ package.json is not valid JSON — refusing to touch it." >&2
+    exit 1
+  fi
+  add_list="$(printf '%s' "$plan" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).add.join(" ")))')"
+  conf_list="$(printf '%s' "$plan" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).conflict.join(" ")))')"
+  [ -n "$add_list" ]  && changes+=("package.json: add scripts -> $add_list")
+  [ -n "$conf_list" ] && conflicts+=("package.json: these scripts already exist with different values -> $conf_list")
+else
+  changes+=("package.json: create, with test/tdd/lint/observe scripts")
+fi
+
+# ── .claude/settings.json — SessionStart rotator hook ─────────────────────────
+ROTATOR='$CLAUDE_PROJECT_DIR/.claude/hooks/rotate-tdd-session-log.sh'
+if [ -f .claude/hooks/rotate-tdd-session-log.sh ]; then
+  if [ -f .claude/settings.json ]; then
+    present="$(node -e '
+      try{const s=JSON.parse(require("fs").readFileSync(".claude/settings.json","utf8"));
+      const g=(s.hooks&&s.hooks.SessionStart)||[];
+      process.stdout.write(g.some(x=>(x.hooks||[]).some(h=>(h.command||"").includes("rotate-tdd-session-log")))?"y":"n");
+      }catch(e){process.stdout.write("err")}')"
+    [ "$present" = "err" ] && conflicts+=(".claude/settings.json is not valid JSON")
+    [ "$present" = "n" ]   && changes+=(".claude/settings.json: register SessionStart rotator hook")
+  else
+    changes+=(".claude/settings.json: create, with SessionStart rotator hook")
+  fi
+fi
+
+# ── .github/workflows/ci.yml from the template ────────────────────────────────
+if [ -f .claude/ci/ci.yml.template ] && [ ! -f .github/workflows/ci.yml ]; then
+  changes+=(".github/workflows/ci.yml: generate from template")
+fi
+
+# ── Report, then act ──────────────────────────────────────────────────────────
+if [ "${#conflicts[@]}" -gt 0 ]; then
+  echo "✖ REFUSING — resolve these by hand first (nothing was changed):"
+  for c in "${conflicts[@]}"; do echo "    - $c"; done
+  echo ""
+  echo "  This script never overwrites a value you already set. Either match the"
+  echo "  harness value yourself, or remove your entry and re-run."
+  exit 1
+fi
+
+if [ "${#changes[@]}" -eq 0 ]; then
+  echo "✔ Already wired — nothing to do."
+  exit 0
+fi
+
+echo "This will change:"
+for c in "${changes[@]}"; do echo "    - $c"; done
+echo ""
+
+if [ "$DRY_RUN" -eq 1 ]; then
+  echo "(--dry-run: stopping here)"
+  exit 0
+fi
+
+if [ "$ASSUME_YES" -ne 1 ]; then
+  printf 'Apply? [y/N] '
+  read -r reply
+  case "$reply" in y|Y|yes|YES) ;; *) echo "Aborted; nothing changed."; exit 0 ;; esac
+fi
+
+# package.json
+node -e '
+  const fs=require("fs");
+  const want=JSON.parse(process.argv[1]);
+  let pkg={};
+  if(fs.existsSync("package.json")) pkg=JSON.parse(fs.readFileSync("package.json","utf8"));
+  pkg.scripts=pkg.scripts||{};
+  for(const[k,v]of Object.entries(want)) if(pkg.scripts[k]===undefined) pkg.scripts[k]=v;
+  if(!pkg.name) pkg.name=require("path").basename(process.cwd());
+  if(!pkg.private) pkg.private=true;
+  fs.writeFileSync("package.json",JSON.stringify(pkg,null,2)+"\n");
+' "$want_scripts_json"
+echo "  ✔ package.json scripts wired (existing values untouched)"
+
+# .claude/settings.json
+if [ -f .claude/hooks/rotate-tdd-session-log.sh ]; then
+  node -e '
+    const fs=require("fs"),p=".claude/settings.json";
+    let s={}; if(fs.existsSync(p)) s=JSON.parse(fs.readFileSync(p,"utf8"));
+    s.hooks=s.hooks||{}; s.hooks.SessionStart=s.hooks.SessionStart||[];
+    const cmd=process.argv[1];
+    const has=s.hooks.SessionStart.some(g=>(g.hooks||[]).some(h=>(h.command||"").includes("rotate-tdd-session-log")));
+    if(!has) s.hooks.SessionStart.push({hooks:[{type:"command",command:cmd}]});
+    fs.mkdirSync(".claude",{recursive:true});
+    fs.writeFileSync(p,JSON.stringify(s,null,2)+"\n");
+  ' "$ROTATOR"
+  echo "  ✔ SessionStart rotator hook registered"
+fi
+
+# ci.yml
+if [ -f .claude/ci/ci.yml.template ] && [ ! -f .github/workflows/ci.yml ]; then
+  mkdir -p .github/workflows
+  cp .claude/ci/ci.yml.template .github/workflows/ci.yml
+  echo "  ✔ .github/workflows/ci.yml generated"
+fi
+
+echo ""
+echo "Done. Next:"
+echo "  npm install --save-dev eslint cross-env   # if not already present"
+echo "  npm run lint && npm test"
+SETUPEOF
+chmod +x "$SETUP_DST"
+
 write_manifest
 
 echo ""
 echo "Bootstrap complete for: $PROJECT_NAME"
+echo "  emitted setup-project.sh — bootstrap does not edit your package.json; that does."
 echo "  manifest: $((${#NEW_ORDER[@]})) entries — ${n_placed} placed, ${n_refreshed} refreshed," \
      "${n_override} local override(s) kept, ${n_adopted} adopted, ${n_unknown} unknown-provenance," \
      "${n_carried} carried forward"
@@ -541,7 +777,11 @@ echo "────────────────────────�
 
 echo ""
 echo "Next steps:"
-echo "  1. Customise $PROJECT_PATH/CLAUDE.md for this project"
-echo "  2. Edit CLAUDE.local.md with any sprint-specific notes (gitignored)"
-echo "  3. cd $PROJECT_PATH && claude"
-echo "  4. Read .claude/memory/current-state.md to orient"
+echo "  1. cd $PROJECT_PATH && ./setup-project.sh    <- REQUIRED: wires package.json,"
+echo "     the SessionStart hook, and .github/workflows/ci.yml. Nothing lints or tests"
+echo "     until this runs. It refuses rather than clobbers, and is safe to re-run."
+echo "  2. Customise $PROJECT_PATH/CLAUDE.md for this project"
+echo "  3. Edit CLAUDE.local.md with any sprint-specific notes (gitignored)"
+echo "  4. npm install --save-dev eslint cross-env"
+echo "  5. cd $PROJECT_PATH && claude"
+echo "  6. Read .claude/memory/current-state.md to orient"

@@ -126,5 +126,12 @@ enumerate_workflow_assets() {
   f="$repo/.github/workflows/secret-scan.yml"
   [[ -f "$f" ]] && printf '%s\t%s\t\n' ".github/workflows/secret-scan.yml" "$f"
 
+  # The consumer's own CI, shipped as a template and turned into a real workflow by
+  # the owner-run setup-project.sh. It lands under .claude/ci/ rather than in
+  # .github/workflows/ precisely because a `.template` sitting in the workflows
+  # directory is a file GitHub silently ignores — present, never running.
+  f="$repo/.github/workflows/ci.yml.template"
+  [[ -f "$f" ]] && printf '%s\t%s\t\n' ".claude/ci/ci.yml.template" "$f"
+
   return 0
 }

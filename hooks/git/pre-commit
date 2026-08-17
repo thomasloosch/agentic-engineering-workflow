@@ -101,4 +101,44 @@ if [ "$found" -ne 0 ]; then
   echo "pre-commit: commit blocked. Remove the secret, or if this is a false positive use an allowlisted *.example/*.sample/*.template file." >&2
   exit 1
 fi
+
+# ─── Exec-bit assertion on the INDEX (mechanizing artifact-vs-effect) ──────────
+# A file with a shebang staged at 100644 is inert: git will not execute a
+# non-executable hook, and the script "runs fine" in the working tree, so nothing
+# looks wrong. That defect has now occurred three times here — the original secret
+# guard shipped inert, and the UNC exec-bit phantom (chmod never reaches the index
+# over a \\wsl.localhost checkout) struck twice in one week.
+#
+# The same assertion already runs in CI, but CI fires AFTER the bad mode is
+# committed and pushed. Here it refuses the commit, which is the point: this class
+# recurred often enough that a principle in a checklist was demonstrably not
+# preventing it, so it becomes a mechanical gate at the moment of the mistake.
+#
+# Keyed on shebang ∪ *.sh — git hooks are conventionally extensionless, and a
+# *.sh-only rule would miss exactly the file that caused the original bug. *.mjs is
+# excluded: node-invoked, correctly 100644.
+mode_fail=0
+while IFS= read -r entry; do
+  [ -z "$entry" ] && continue
+  mode="${entry%% *}"
+  path="${entry#*$'\t'}"
+  case "$path" in *.mjs) continue ;; esac
+  [ -f "$path" ] || continue
+  case "$path" in
+    *.sh) ;;
+    *) head -c 2 "$path" 2>/dev/null | grep -q '#!' || continue ;;
+  esac
+  if [ "$mode" != "100755" ]; then
+    echo "pre-commit: NOT EXECUTABLE — $path is staged $mode, expected 100755." >&2
+    echo "pre-commit:   It has a shebang, so git will silently refuse to run it." >&2
+    echo "pre-commit:   Fix with: git update-index --chmod=+x '$path'" >&2
+    mode_fail=1
+  fi
+done <<< "$(git diff --cached --name-only --diff-filter=ACMR | while IFS= read -r f; do git ls-files -s -- "$f"; done)"
+
+if [ "$mode_fail" -ne 0 ]; then
+  echo "pre-commit: commit blocked — a script would ship inert." >&2
+  exit 1
+fi
+
 exit 0

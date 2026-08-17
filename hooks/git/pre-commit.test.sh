@@ -140,6 +140,47 @@ else
 fi
 rm -rf "$NONREPO"
 
+# 10. Exec-bit assertion: a shebang file staged 100644 is BLOCKED.
+#     This is the mechanization of artifact-vs-effect — a class that recurred three
+#     times as a principle-in-a-checklist before becoming a gate. The same check
+#     runs in CI, but CI fires after the bad mode is already committed.
+setup
+printf '#!/usr/bin/env bash\necho hi\n' > "$TESTDIR/tool.sh"
+git -C "$TESTDIR" add tool.sh
+git -C "$TESTDIR" update-index --chmod=-x tool.sh 2>/dev/null || true
+run_hook
+assert_block "shebang file staged 100644 → blocked" "NOT EXECUTABLE"
+teardown
+
+# 11. The same file staged 100755 → allowed. Without this, a guard that blocked
+#     every script would pass test 10 and be useless.
+setup
+printf '#!/usr/bin/env bash\necho hi\n' > "$TESTDIR/tool.sh"
+git -C "$TESTDIR" add tool.sh
+git -C "$TESTDIR" update-index --chmod=+x tool.sh
+run_hook
+assert_pass "shebang file staged 100755 → allowed"
+teardown
+
+# 12. A NON-shebang file staged 100644 → allowed. The rule keys on shebang ∪ *.sh,
+#     not on "every staged file", or ordinary source would be unable to commit.
+setup
+printf 'plain text, no shebang\n' > "$TESTDIR/notes.md"
+git -C "$TESTDIR" add notes.md
+run_hook
+assert_pass "non-shebang file staged 100644 → allowed"
+teardown
+
+# 13. A *.mjs file staged 100644 → allowed. node-invoked, correctly non-executable;
+#     the CI rule excludes it and this must match or the two gates disagree.
+setup
+printf '#!/usr/bin/env node\nconsole.log(1)\n' > "$TESTDIR/cli.mjs"
+git -C "$TESTDIR" add cli.mjs
+git -C "$TESTDIR" update-index --chmod=-x cli.mjs 2>/dev/null || true
+run_hook
+assert_pass "*.mjs staged 100644 → allowed (node-invoked)"
+teardown
+
 echo ""
 if [ "$FAILED" -eq 0 ]; then echo "ALL GREEN"; else echo "SOME RED"; fi
 exit "$FAILED"

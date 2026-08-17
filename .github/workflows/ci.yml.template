@@ -1,5 +1,9 @@
-# CI workflow template — copy to .github/workflows/ci.yml and customise
-# Remove the .template extension to activate
+# CI workflow template.
+#
+# Propagated by bootstrap to .claude/ci/ci.yml.template, and turned into a real
+# .github/workflows/ci.yml by the owner-run setup-project.sh. It stays a template
+# in THIS repo because this repo's own CI is guards.yml + secret-scan.yml; it is a
+# template for consumers, not an inert file nobody runs.
 
 name: CI
 
@@ -46,27 +50,17 @@ jobs:
       - name: Build
         run: npm run build --if-present
 
-  agent-checks:
+  # NOTE: an `agent-checks` job used to live here, validating frontmatter in
+  # .claude/agents/. That layer was retired in ADR-0003 and the directory is empty,
+  # so the job could only ever skip — a step that always passes because it never
+  # runs is worse than absent: it reads as coverage. Removed rather than propagated.
+
+  project-checks:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Check agent frontmatter
-        run: |
-          if [ -d .claude/agents ]; then
-            for f in .claude/agents/*.md; do
-              first_line=$(head -1 "$f")
-              if [ "$first_line" != "---" ]; then
-                echo "FAIL: $f missing frontmatter"
-                exit 1
-              fi
-            done
-            echo "All agent files have valid frontmatter"
-          else
-            echo "No .claude/agents directory — skipping"
-          fi
 
       - name: Check bilingual completeness
         run: |
