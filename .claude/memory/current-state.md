@@ -186,9 +186,19 @@ individual project repos. Separate from product work (Sovary); used to build it.
     the same build. AC2 (propagation) and AC6 (populated by a real build)
     deliberately NOT closed — those complete with #17 and #18 respectively, so
     #19 stays open on the board.
-  - **#17 full-harness bootstrap** — propagate the whole reference control set AND
-    the learning artifacts; emitted owner-run `setup-project.sh` does the wiring so
-    bootstrap never edits package.json.
+  - **#17 full-harness bootstrap — SLICE 1 DONE 2026-08-14 (`1975c26`), CI green.**
+    Mechanical control set now propagates: eslint.config.js, run-tests.mjs,
+    observe.mjs, secret-scan.yml. **Manifest v2 -> v3** — column 1 is now
+    PROJECT-ROOT-relative, forced because GitHub requires .github/workflows/ and
+    eslint requires a root config, neither expressible in v2. v2 manifests migrate
+    on read (load-bearing: without it, 33 jobs-radar entries flip to "re-add" and
+    --apply would overwrite every override; a test now kills that mutation).
+    `guards.yml` deliberately NOT propagated — it is this repo's own guard-TEST
+    suite and would fail on first run in any consumer; a test asserts its absence.
+    **SLICE 2 (learning artifacts) IS PARKED** pending the ADR-0007 ordering
+    decision on #26 — do not build D2a's mirror machinery before that call.
+    Slices 3 (setup-project.sh + bootstrap.conf) and 4 (re-bootstrap jobs-radar)
+    are unblocked.
   - **#18 semver acceptance harness** — the end-to-end test. Fresh repo, bootstrapped,
     taken PRD -> spec -> gate 1 -> build -> gate 2, validated against a public
     conformance corpus split visible/held-out.
