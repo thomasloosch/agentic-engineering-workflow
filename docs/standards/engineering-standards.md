@@ -47,7 +47,7 @@ One function/module/component does one thing. "And" in the name is a signal to s
 Format: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`. Automated changelogs depend on this.
 
 ### 10. No direct commits to main (project-conditional)
-For projects with collaborators, every change goes via feature branch + PR: the PR is the pause and the second reader. Solo projects may commit directly to main (ADR-0001) — there's no second reviewer to gate on; the pause comes from self-review and the warn-direct-commit hook.
+For projects with collaborators, every change goes via feature branch + PR: the PR is the pause and the second reader. Solo projects may commit directly to main (ADR-0001) — there's no second reviewer to gate on; the pause comes from self-review. (It used to also cite a `warn-direct-commit` hook. That hook was retired 2026-08-17: it exited 0 and wrote to stderr, which never surfaces in the Desktop runtime, so it warned no one while its presence read as coverage — see the amended ADR-0002. If a project here gains collaborators, the right build is a **blocking** hook, not a warning.)
 
 ### 11. Bilingual is project-conditional
 If the project ships in two languages, every user-facing string exists in both at commit time. If the project is single-language, this rule is off.

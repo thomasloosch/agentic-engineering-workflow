@@ -1,7 +1,21 @@
 # Spec — #26 Plugin distribution for the portable/learning half
 
-**Issue:** #26 · **Status:** Gate 1 — awaiting approval · **Date:** 2026-08-14
-**ADR:** [ADR-0007](../adr/0007-plugin-distribution-for-the-portable-half.md) (PROPOSED — approve both together or neither)
+**Issue:** #26 · **Status:** **Gate 1 APPROVED 2026-08-17** · **Drafted:** 2026-08-14
+**ADR:** [ADR-0007](../adr/0007-plugin-distribution-for-the-portable-half.md) — **ACCEPTED**
+
+## Gate 1 decisions (2026-08-17)
+
+1. **Q1 ordering — decide the split now; do not build the checklist copies.** None of the
+   plugin-delivered artifacts is hard-`@`-imported (Rule 2 links `verification.md` by URL, not
+   path), and the plugin cache is their offline mirror. So the mirror copies were never
+   load-bearing. #17 slice 2 is reduced accordingly; the throwaway is avoided.
+2. **Q2 — the standards doc stays COPY-propagated.** Sole learning artifact that remains a copy,
+   because it is the one hard-`@`-imported path and #16's fix now detects its drift.
+3. **Q3 auto-update** — an implementation question inside slice 4, not a gate question.
+4. **Q4 catch-log** — schema ships with the plugin; the empty table is placed once by bootstrap.
+5. **Mechanism finds adopted, not rebuilt:** version guard invokes `claude plugin tag --dry-run`;
+   consumers use `marketplace add --sparse`.
+
 **Reshapes:** #17 slice 2 · **Supersedes (partly):** #25 down-direction · **Feeds:** #22
 
 ---
@@ -40,6 +54,7 @@ A plugin has no second copy, so it cannot drift. That is the whole argument.
 | half | artifacts | mechanism | why |
 |---|---|---|---|
 | **portable / learning** | skills, `verification.md`, `code-review.md`, catch-log **schema** | marketplace plugin | read-only reference; a project has no business editing it, so there is no reason to copy it |
+| **the one exception** | `engineering-standards.md` | **bootstrap copy** (Q2) | hard-`@`-imported by path; plugin delivery would silently break every project's standards import. #16's fix detects its drift, which was the only reason to move it |
 | **mechanical wiring** | CI workflows, git hooks, lint config, test entrypoint, `package.json` scripts, `core.hooksPath` | bootstrap + `setup-project.sh` | **must** be files in the consuming repo — CI cannot run a workflow inside a plugin, git cannot execute a hook it cannot see |
 | **project-owned data** | catch-log **rows**, `current-state.md` | neither — created once, never distributed | accumulating locally is the entire point (#17 D2a already settled this) |
 
@@ -70,7 +85,7 @@ Each names the instrument that reads it (catch 7).
 | 5 | **Mutation check:** stub the version guard to always-pass and confirm AC4 goes red | catch 3 — a guard that stays green with itself removed is vacuous |
 | 6 | The mechanical half still installs via bootstrap and is unaffected | `scripts/bootstrap-project.test.sh` still green; manifest still lists the mechanical assets |
 | 7 | No doc claims live updates; next-session currency stated where propagation is described | grep for the claim; read the propagation docs |
-| 8 | jobs-radar's stale standards doc is resolved by whichever mechanism wins for it (see Q2) | `sha256sum` against canonical, or its `@`-import verified working |
+| 8 | ~~jobs-radar's stale standards doc~~ — **moved out of this issue.** Q2 keeps the standards doc copy-propagated, so this is repaired by **#17 slice 4** (re-bootstrap) and does not wait on the plugin | `sha256sum` against canonical, in #17 |
 
 **AC4 is the load-bearing one.** An un-versioned plugin change is a **silent** no-op — the same fail-open shape as #16 and the dead hooks, which is now this program's most frequent defect class (`fail-open-guard`, 2 of 3 toward promotion). A guard against it is not optional polish.
 
@@ -91,9 +106,11 @@ Each names the instrument that reads it (catch 7).
 
 ---
 
-## Gate 1 questions
+## Gate 1 — APPROVED 2026-08-17
 
-1. **Ordering vs #17.** Approve this before #17 builds slice 2's mirror machinery (avoiding build-then-delete), or let #17 ship mirrors and migrate after? Building first wastes work; deciding first delays #17. **Recommendation: decide this first** — slice 2 is a small part of #17 and the waste is larger than the delay.
-2. **Does the engineering-standards doc move to the plugin?** It is `@`-imported at `.claude/engineering-standards.md` by every project's `CLAUDE.md`, a path a plugin does not supply. Options: (a) keep it copied by bootstrap, plugin ships only the checklists — safest, keeps one copied file; (b) move it and change the `@`-import in the CLAUDE.md template — cleaner, but silently breaks any existing project until re-bootstrapped. **Recommendation: (a) for now** — the risk in (b) is a silent loss of the standards, and the copied standards doc is the one file whose drift the #16 fix now actually detects.
-3. **Auto-update priority.** Is investigating the `DISABLE_AUTOUPDATER` lift worth it before building the #22 fallback, given it is set by the runtime and may not be ours to change?
-4. **Does the plugin ship the catch-log schema as a skill, or as a template file?** A skill can carry the rules and be read on demand; a file has to be placed. Leaning skill-plus-placement: the *rules* travel as reference, the empty table gets placed once by bootstrap.
+All four questions answered in the decisions block at the top. Proceed with slices 1-5.
+
+**One accepted consequence, stated so nobody is surprised:** until the plugin ships, a newly
+bootstrapped project has no local copy of `verification.md` or `code-review.md`. Rule 2's URL
+reference covers it. The gap is brief and non-breaking, and closing it with throwaway copies was
+the waste this decision avoided.

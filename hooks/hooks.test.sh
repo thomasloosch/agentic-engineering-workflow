@@ -183,39 +183,22 @@ rc=$?
   || fail "block-force-push: force-push to feature branch → allowed" "got exit $rc. Output:
 $out"
 
-# ── warn-direct-commit-to-main ────────────────────────────────────────────────
-# Warns only: exit 0 ALWAYS. The observable behaviour is the message, so assert on
-# both the exit code and the output — a warning hook that exits 2 would block every
-# commit on main, which is the opposite of ADR-0001's intent.
-
-# 10. Committing on main → warns, exit 0.
-out=$(run_hook "warn-direct-commit-to-main.sh" "$(bash_payload 'git commit -m wip' "$MAINREPO")")
-rc=$?
-if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'Committing directly to main'; then
-  pass "warn-direct-commit: on main → warns, exit 0"
+# ── warn-direct-commit-to-main: RETIRED 2026-08-17 ────────────────────────────
+# Three tests removed with the hook. It exited 0 and wrote to stderr, which never
+# surfaces in this runtime, so it warned no one for its entire life while its
+# presence read as coverage. Blocking instead would have contradicted ADR-0001,
+# where direct-to-main is the expected path for a solo repo — a guard firing on
+# correct behaviour. See the amended ADR-0002 for the decision and its revisit
+# trigger (a project gains collaborators -> build a BLOCKING version, not a warning).
+#
+# 13. Nothing may reintroduce a warn-only hook. A hook that exits 0 with a message
+#     is indistinguishable from a hook that does nothing, so this asserts the
+#     retired file stays gone rather than trusting anyone to remember why.
+if [ -e "$HOOKS_DIR/warn-direct-commit-to-main.sh" ]; then
+  fail "warn-direct-commit stays retired" \
+       "the hook is back. A warn-only hook is mute here — make it block or leave it out."
 else
-  fail "warn-direct-commit: on main → warns, exit 0" "got exit $rc. Output:
-$out"
-fi
-
-# 11. The documented ALLOW_MAIN_COMMIT=1 escape hatch suppresses the warning.
-out=$(run_hook "warn-direct-commit-to-main.sh" "$(bash_payload 'ALLOW_MAIN_COMMIT=1 git commit -m deliberate' "$MAINREPO")")
-rc=$?
-if [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q 'Committing directly to main'; then
-  pass "warn-direct-commit: ALLOW_MAIN_COMMIT=1 → silent"
-else
-  fail "warn-direct-commit: ALLOW_MAIN_COMMIT=1 → silent" "got exit $rc. Output:
-$out"
-fi
-
-# 12. On a feature branch → silent.
-out=$(run_hook "warn-direct-commit-to-main.sh" "$(bash_payload 'git commit -m wip' "$FEATREPO")")
-rc=$?
-if [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q 'Committing directly to'; then
-  pass "warn-direct-commit: on feature branch → silent"
-else
-  fail "warn-direct-commit: on feature branch → silent" "got exit $rc. Output:
-$out"
+  pass "warn-direct-commit stays retired"
 fi
 
 # ── auto-update-last-reviewed ─────────────────────────────────────────────────

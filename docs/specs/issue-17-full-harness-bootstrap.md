@@ -81,10 +81,18 @@ this issue's propagation is what would silently re-open it.
 `guards.yml`, `secret-scan.yml`, `ci.yml` (installed as `.yml`), `observe.mjs`,
 `check-imports.mjs`, `hooks/git/pre-commit`. All manifest-recorded.
 
-**Slice 2 — learning artifacts.** Propagate `verification.md` and `code-review.md` into
-`.claude/checklists/` with the mirror header (D2), and #19's catch-log skeleton + legend into
-`.claude/memory/`. Manifest-recorded, so staleness is detectable — the failure mode this whole
-item exists to close. **Requires #19's artifact to exist**, which is why #19 precedes this issue.
+**Slice 2 — learning artifacts. REDUCED 2026-08-17 by ADR-0007 (accepted).**
+`verification.md` and `code-review.md` are **no longer copied** — they become plugin-delivered
+(#26), and D2a's mirror banner is unnecessary for them because the drift it warns about cannot
+occur without a copy. Rule 2 links `verification.md` by URL rather than by path, so nothing
+breaks while the plugin is pending; that interim gap is accepted in the ADR.
+
+What remains here: place **#19's catch-log skeleton + legend** into `.claude/memory/` —
+project-owned data, must be a file, never plugin-delivered. The **standards doc stays a copy**
+per ADR-0007 Q2 (the one hard-`@`-imported path; plugin-delivering it would silently break every
+project's standards import) and already ships in slice 1.
+
+**Requires #19's artifact to exist**, which is why #19 precedes this issue.
 
 **Slice 3 — `setup-project.sh` + `bootstrap.conf`.** The owner-run wiring, and the override.
 

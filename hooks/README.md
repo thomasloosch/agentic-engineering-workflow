@@ -11,7 +11,7 @@ Configured in `~/.claude/settings.json` under the `hooks` key.
 | `check-claude-md-staleness.sh` | SessionStart | Warns at session start if global CLAUDE.md hasn't been reviewed in 90+ days |
 | `block-git-add-all.sh` | PreToolUse (Bash) | Blocks `git add .`, `git add -A`, `git add --all` |
 | `block-force-push-to-main.sh` | PreToolUse (Bash) | Blocks force-push to main/master branches |
-| `warn-direct-commit-to-main.sh` | PreToolUse (Bash) | Warns (does not block) when committing directly to main/master |
+| ~~`warn-direct-commit-to-main.sh`~~ | — | **RETIRED 2026-08-17.** Exited 0 and wrote to stderr, which never surfaces here, so it warned no one while looking like coverage. Blocking would contradict ADR-0001 (direct-to-main is the approved solo path). See ADR-0002; revisit as a *blocking* hook only if a project gains collaborators. |
 | `auto-update-last-reviewed.sh` | PostToolUse (Edit|Write) | Updates the "Last reviewed" date in global CLAUDE.md when the file is edited |
 
 ## Git-native hooks (`hooks/git/`)

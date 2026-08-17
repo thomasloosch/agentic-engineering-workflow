@@ -1,8 +1,36 @@
 # ADR-0007: Distribute the portable half as a marketplace plugin; keep mechanical wiring in bootstrap
 
-**Status:** PROPOSED — drafted for Gate 1 alongside the item-2 spec. Not accepted; do not build against it yet.
-**Date drafted:** 2026-08-14
+**Status:** **ACCEPTED 2026-08-17.** Both gate questions resolved; the split below is the decision.
+**Date drafted:** 2026-08-14 · **Accepted:** 2026-08-17
 **Context source:** the harness-hardening program, item 2. Supersedes part of #25 and reshapes part of #17 — see Consequences.
+
+## Gate decisions (2026-08-17)
+
+**Q1 — ordering: decide the split now, do not build the checklist copies.** The
+reasoning that settles it: none of the plugin-delivered artifacts is hard-`@`-imported.
+Rule 2 links `verification.md` by **URL**, not by path, so nothing breaks when the
+file is not on disk. And the plugin cache *is* the offline mirror — plugin delivery
+keeps offline access while removing the second copy that could drift. So the mirror
+copies were never load-bearing, and building them would have been throwaway work.
+
+Consequence for #17 slice 2: **it drops the mirror-bannered checklist copies and
+D2a's banner for them.** Mechanical propagation is unaffected and proceeds.
+
+**Accepted interim gap:** until the plugin ships, a newly bootstrapped project has
+no local checklist copy. It is covered by the URL reference in Rule 2, so the gap is
+brief and non-breaking — not worth building throwaway copies to close.
+
+**Q2 — the standards doc stays COPY-propagated.** It is the one file with a hard
+`@.claude/engineering-standards.md` path dependency in every project's `CLAUDE.md`.
+Plugin-delivering it would silently break every project's standards import — a
+fail-open of the highest-value artifact in the system. The only argument for moving
+it was drift, and #16's fix now detects that drift. So it is the **sole learning
+artifact that remains a copy, for a stated reason.**
+
+**Mechanism finds adopted rather than rebuilt:** the CI version guard invokes
+`claude plugin tag --dry-run` (it already validates plugin.json ↔ marketplace
+agreement); consumers use `marketplace add --sparse` to avoid fetching this whole
+repo.
 
 ---
 
@@ -44,12 +72,15 @@ marketplace.
 
 **Split distribution by artifact kind.**
 
-**Portable / learning half → a marketplace plugin from this repo.** Skills, the
-engineering standards, `verification.md`, `code-review.md`, and the catch-log
-*schema*. These are read-only reference material: a project consumes them, and a
-project has no business editing them. Distributing them as a plugin means there is
-**no second copy to drift**, which dissolves the #16 class for this half rather
-than tracking it more carefully.
+**Portable / learning half → a marketplace plugin from this repo.** Skills,
+`verification.md`, `code-review.md`, and the catch-log *schema*. These are read-only
+reference material: a project consumes them, and a project has no business editing
+them. Distributing them as a plugin means there is **no second copy to drift**,
+which dissolves the #16 class for this half rather than tracking it more carefully.
+
+**Exception, decided at Gate 1: the engineering-standards doc stays copied** — it
+is hard-`@`-imported by path, so plugin-delivering it would silently break every
+project's standards import. See Q2 above.
 
 **Mechanical wiring half → stays with bootstrap and `setup-project.sh`.** CI
 workflows, git hooks, lint config, the test entrypoint, `package.json` scripts,
@@ -74,15 +105,15 @@ centre) is untouched by this decision and stays parked.
 
 ### For #17 (full-harness bootstrap)
 
-**Slice 2 changes shape.** It currently propagates `verification.md` and
-`code-review.md` as mirror-bannered copies into `.claude/checklists/`. If this ADR
-is accepted, those become plugin-delivered and the mirror banner (D2a) becomes
-unnecessary for them — the drift it warns about cannot occur. The catch-log
-skeleton still needs placing as a file, so slice 2 does not disappear.
+**Slice 2 is reduced, per the Q1 decision.** The mirror-bannered copies of
+`verification.md` and `code-review.md` are **not built** — those become
+plugin-delivered, and D2a's banner is unnecessary for them because the drift it
+warns about cannot occur without a copy. What remains in slice 2: placing the
+catch-log skeleton (project-owned data, must be a file) and keeping the standards
+doc copy (Q2). Mechanical propagation is unaffected.
 
-**This is a real ordering problem and the reason this ADR is drafted now rather
-than after #17.** Building slice 2's mirror machinery and then deleting it would be
-waste. Gate-1 question below.
+Deciding this before #17 built the mirror machinery is the whole reason this ADR was
+drafted ahead of schedule, and it avoided the throwaway.
 
 ### Currency: next session, never current
 
@@ -147,17 +178,12 @@ measurement, not taste: it costs 5–6 s per session and buys nothing, because t
 update cannot apply until the *next* session anyway. Deliberately recorded as
 rejected so it is not proposed again.
 
-## Gate-1 questions
+## Gate-1 questions — all resolved 2026-08-17
 
-1. **Ordering vs #17.** Accept this before #17 builds slice 2 (avoiding
-   build-then-delete), or let #17 ship mirrors and migrate later? Building first
-   wastes work; deciding first delays #17.
-2. **Scope of the portable half.** Does the engineering-standards doc move to
-   plugin delivery? It is currently `@`-imported from `.claude/engineering-standards.md`
-   in each project's `CLAUDE.md` — a path a plugin does not provide, so this is not
-   a free move and may need the `@`-import to change or stay copied.
-3. **Auto-update mechanism.** `autoUpdate` appears throughout the CLI and is the
-   low-latency primary; the fallback is triggering `claude plugin marketplace
-   update` from #22's drift-check. Confirm the primary is worth investigating
-   before the fallback is built, given `DISABLE_AUTOUPDATER` is set in this runtime
-   (verified) and may block it.
+Q1 (ordering) and Q2 (the standards doc) are answered at the top of this file.
+
+Q3 (auto-update mechanism) remains an implementation question inside #26 slice 4
+rather than a gate question: investigate lifting `DISABLE_AUTOUPDATER` and using
+per-marketplace `autoUpdate` first, and fall back to triggering
+`claude plugin marketplace update` from #22's drift-check if the runtime-injected
+variable is not ours to change. A SessionStart update hook stays rejected.

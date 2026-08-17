@@ -1,8 +1,8 @@
 # ADR-0002: Lifecycle hooks in the Desktop runtime — AMENDED
 
-**Status:** Amended 2026-08-14 on empirical evidence. The original claim was
-**wrong in its central assertion and right in its practical conclusion**, for a
-different reason than it gave.
+**Status:** SETTLED 2026-08-17 — amendment complete, all gaps closed on measured
+evidence, probe removed. The original claim was **wrong in its central assertion
+and right in its practical conclusion**, for a different reason than it gave.
 **Supersedes:** the original text, preserved verbatim at the bottom.
 **Evidence source:** the hook-revival build (see `hooks/hooks.test.sh`,
 `hooks/lib/json-extract.sh`, and the live probes recorded below).
@@ -57,28 +57,36 @@ So the correct statement is the inverse of the original:
 > Hooks are **enforcing**, not advisory. What is advisory — a warn-only hook that
 > exits 0 — is effectively **mute**, and cannot be relied on to inform anyone.
 
-## Not yet verified
+## All three lifecycle events fire — measured, 2026-08-17
 
-Honest gaps, deliberately not papered over with inference:
+The two gaps this ADR left open are now closed by direct measurement rather than
+by inference. `hooks/probe-hook-firing.sh` ran across **three days and 18 sessions**
+and logged 300 invocations to `~/.claude/logs/hook-firing-probe.log`:
 
-- **`PostToolUse` firing** — unverified in-runtime. Its only observable effect
-  (`auto-update-last-reviewed.sh`) is to stamp `Last reviewed: <today>` in the
-  global `CLAUDE.md`, which would be a *false* statement if written by a probe
-  rather than by a real review, so it was not triggered to find out.
-- **`SessionStart` firing** — unverified. Hooks load at session start, so no
-  in-session probe can settle it. (The one real SessionStart hook would also have
-  stayed silent regardless: the global `CLAUDE.md` was last reviewed 2026-05-26,
-  80 days ago, under its own 90-day threshold.)
+| event | invocations |
+|---|---|
+| `PreToolUse` | 142 |
+| `PostToolUse` | 140 |
+| `SessionStart` | 18 |
 
-`hooks/probe-hook-firing.sh` is installed and registered for `SessionStart`,
-`PreToolUse` and `PostToolUse` to close both gaps. It appends one line per
-invocation to `~/.claude/logs/hook-firing-probe.log` and asserts nothing false.
-**Read that log after one fresh desktop session, then finish this ADR and remove
-the probe.**
+`PostToolUse` fired for `Bash` (82), `Edit` (47), `Write` (6), `Read`, `Agent` and
+`ToolSearch` — so it is not limited to a narrow matcher set. `SessionStart` fired
+once per session, 18 times.
 
-It is reasonable to *expect* both fire, since they are the same mechanism in the
-same settings file as the proven `PreToolUse` entries — but expectation is what
-the original ADR ran on, and this amendment exists because that wasn't enough.
+**Conclusion: every lifecycle event this repo uses fires in the Desktop/MINGW
+runtime.** Nothing about the runtime prevents hook enforcement. The original ADR's
+central assertion is false in full, not merely in part.
+
+The probe has been removed from `~/.claude/settings.json` and from the repo. It
+was a measuring instrument with a defined end condition, and leaving it installed
+would have been a permanent 300-writes-and-counting side effect for a question
+already answered.
+
+**Why this needed measuring at all**, given it was reasonable to expect: expectation
+is exactly what the original ADR ran on. It asserted a mechanism nobody had probed,
+and that assertion then justified four weeks of architectural workarounds. The cost
+of measuring was one probe script; the cost of not measuring was a false premise
+underneath several decisions.
 
 ## Consequences
 
@@ -98,6 +106,28 @@ no commit created. That conclusion was correct; only its stated reason changes.
 must not be cited as a reason to avoid building a hook, or as a reason to assume a
 hook isn't running. The opposite is now evidenced. A *warn-only* hook, however, is
 close to pointless here — if it matters, make it block.
+
+**An option reopened, deliberately not chased.** Several git-native workarounds in
+this repo exist *because* lifecycle hooks were believed to be advisory here — the
+git-native `pre-commit` guard being the main one. That premise was wrong, so
+lifecycle hooks are now available for real enforcement. **This is recorded as an
+available option, not a refactor to perform.** The git-native guard still has an
+independent justification (git runs it on any operation, including ones issued
+outside Claude Code entirely), so there is nothing broken to fix. Simplifying on
+the strength of a newly-corrected premise, immediately, is how you trade one
+unverified assumption for another.
+
+**`warn-direct-commit-to-main` is retired** — decided on this evidence rather than
+left ambiguous. It exited 0 and wrote to stderr, which never surfaces, so it warned
+no one for its entire life. Worse, its presence read as coverage. The two options
+were to make it block or to drop it, and blocking would contradict **ADR-0001**:
+direct-to-main is the *expected and approved* path for a solo repo, so a blocking
+guard would fire on correct behaviour. A warning with no audience, on a path that
+is not a mistake, has no remaining purpose.
+
+> **Revisit trigger:** a project on this machine gains collaborators, at which point
+> Standard 10 becomes active for it and a **blocking** version is the right build.
+> Not a warning — this ADR is the evidence that warnings do not reach anyone.
 
 **Standing lesson.** A guard that dies before its own logic is worse than no
 guard, because its presence reads as coverage. The class is `fail-open-guard`
