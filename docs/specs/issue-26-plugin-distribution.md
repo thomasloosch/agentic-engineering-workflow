@@ -77,6 +77,39 @@ Everything about the standards doc hangs on it:
 
 No other slice commits to a delivery model until this is answered.
 
+### Slice 0 — findings so far (2026-08-17). Partially answered; the live half is blocked.
+
+**Established by observation, not inference:**
+
+1. **The plugin installs and works.** `marketplace add` → `install` → `uninstall` → `marketplace remove` all run **non-interactively** (AC2 satisfied). `claude plugin details` reports 11 skills and ~630 tokens always-on.
+2. **The cache path is VERSION-NAMESPACED:**
+   `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/…` — e.g. `…/agentic-engineering-workflow/0.1.0/docs/standards/engineering-standards.md`.
+   **This is close to decisive against an absolute-path `@`-import.** Even if such an import resolves, the path contains the version, so it would break on **every plugin release**, in **every project**. A propagation mechanism that requires editing every consumer's `CLAUDE.md` on each version bump is worse than the copy it replaces.
+3. **The cache carries the WHOLE repo** — `docs/`, `hooks/`, `.github/`, and `node_modules/`. The standards doc *is* present and current there. Shipping `node_modules/` to every consumer is waste; the plugin `source` needs narrowing, or `marketplace add --sparse` used on the consumer side. Folded into slice 1.
+
+**Suggestive, explicitly NOT proven:** `${CLAUDE_PLUGIN_ROOT}` exists in the CLI, but the surrounding text places it in **hook/command exec-form** substitution ("resolved as an executable and spawned directly … no shell. Path placeholders like `${CLAUDE_PLUGIN_ROOT}` are substituted per-element"). Nothing observed ties it to `CLAUDE.md` memory imports. That is a string's context, not a test, and it is recorded as a hint rather than an answer.
+
+**Blocked here:** the live resolution test needs a Claude session in a consuming project, and a nested `claude -p` from inside this session fails with `401 OAuth access token has been revoked`. The test was **not** run, and the question is **not** answered by inference.
+
+**The exact test to run, in a fresh interactive session:**
+
+```
+# 1. install
+claude plugin marketplace add <path-to-this-repo>
+claude plugin install agentic-engineering-workflow@thomasloosch
+
+# 2. in a THROWAWAY project, CLAUDE.md containing ONE of:
+#    @${CLAUDE_PLUGIN_ROOT}/docs/standards/engineering-standards.md
+#    @~/.claude/plugins/cache/thomasloosch/agentic-engineering-workflow/0.1.0/docs/standards/engineering-standards.md
+
+# 3. confirm it RESOLVED, not that the line was accepted:
+/memory
+```
+
+`/memory` lists what actually loaded. A line that is accepted but silently fails to import is `artifact-vs-effect` on the highest-value artifact in the system — the class already logged six times here — so "no error appeared" is not evidence.
+
+**Current reading:** finding 2 means even a YES on resolution probably does not rescue plugin delivery for the standards doc, unless a version-independent placeholder works in imports. So the likely outcome is **the copy stands** — but as a *decided* answer with a stated reason, not the interim default Q2 left behind.
+
 **Slice 1 — the manifests.** `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json`, modelled on Cole's, pointing at `./.claude/skills`. Verify `claude plugin marketplace add <repo>` then `claude plugin install` works non-interactively, from a clean state.
 
 **Slice 2 — the version guard.** CI step failing when `.claude-plugin/**` or any shipped skill changes without a `plugin.json` version bump. Implemented by invoking `claude plugin tag --dry-run` where possible, falling back to a git-diff comparison of the version field. Includes its mutation check (AC5).
