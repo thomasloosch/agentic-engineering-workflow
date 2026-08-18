@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "agentic-engineering-workflow",
   "displayName": "Agentic Engineering Workflow",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The portable half of a solo agentic engineering harness: the skills pipeline, the verification checklist, the AI-failure-mode code review checklist, and the catch-log schema. Mechanical wiring (CI, hooks, lint) is installed per-project by bootstrap, not by this plugin.",
   "author": {
     "name": "Thomas Loosch",
