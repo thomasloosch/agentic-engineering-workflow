@@ -85,7 +85,15 @@ No other slice commits to a delivery model until this is answered.
 2. **The cache path is VERSION-NAMESPACED:**
    `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/…` — e.g. `…/agentic-engineering-workflow/0.1.0/docs/standards/engineering-standards.md`.
    **This is close to decisive against an absolute-path `@`-import.** Even if such an import resolves, the path contains the version, so it would break on **every plugin release**, in **every project**. A propagation mechanism that requires editing every consumer's `CLAUDE.md` on each version bump is worse than the copy it replaces.
-3. **The cache carries the WHOLE repo** — `docs/`, `hooks/`, `.github/`, and `node_modules/`. The standards doc *is* present and current there. Shipping `node_modules/` to every consumer is waste; the plugin `source` needs narrowing, or `marketplace add --sparse` used on the consumer side. Folded into slice 1.
+3. **The plugin cache carries the whole working tree, `node_modules/` included — ~15M, 1307 files.** The standards doc is present and current there.
+
+   **`--sparse` does NOT fix this** (tested). It limits the *marketplace clone* — which drops to 43 files and never had `node_modules` anyway — but the plugin cache is materialized separately and still comes out at 1245 files / 14M. So the documented consumer-side mitigation does not mitigate.
+
+   **A correction I made mid-investigation and am retracting.** On seeing `node_modules` in the cache from a *Directory*-sourced marketplace, I reasoned it was an artifact of copying a working tree, and that a GitHub source would git-clone and exclude it since it is gitignored. **That reasoning was wrong.** Re-tested with a GitHub-sourced marketplace, from a cwd outside the repo: still 15M, still `node_modules`. The git clone genuinely is clean (105 files full, 43 sparse) — but the plugin cache is not built from it.
+
+   **One caveat I cannot close from here, stated rather than glossed:** every test ran on a machine that *has this repo checked out*. The cached `node_modules` is byte-identical to the local working tree, which strongly suggests the materialization resolves to the local checkout. A genuine third-party consumer with no local copy may well get the clean version. **Untested and untestable on this machine.**
+
+   **Fix direction, robust either way:** restructure so the plugin `source` points at a subtree containing only what should ship, rather than `./`. That does not depend on diagnosing the materialization, which is why it is preferred over chasing the mechanism. Folded into slice 1.
 
 **Suggestive, explicitly NOT proven:** `${CLAUDE_PLUGIN_ROOT}` exists in the CLI, but the surrounding text places it in **hook/command exec-form** substitution ("resolved as an executable and spawned directly … no shell. Path placeholders like `${CLAUDE_PLUGIN_ROOT}` are substituted per-element"). Nothing observed ties it to `CLAUDE.md` memory imports. That is a string's context, not a test, and it is recorded as a hint rather than an answer.
 

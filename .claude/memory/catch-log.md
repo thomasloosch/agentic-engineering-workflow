@@ -123,6 +123,7 @@ the test is whether the same fix addresses both — see `vacuous-test` vs
 | 2026-08-14 | The revived block-git-add-all refused the first real commit made after reviving it, because the commit message documented the `git add -A` probe used to verify it. The guard inspects the raw command string, so writing about the guard tripped the guard. Heredoc bodies now stripped before matching; quoted strings deliberately still matched, since ignoring them would make `git add "."` a trivial bypass. | automatic-gate | overbroad-assertion | fixed+regression-case |
 | 2026-08-14 | First attempt at stripping heredoc bodies used `sed`, which applies its script per line, so `.*$` stopped at the first newline and left the entire heredoc body — the thing it existed to remove — intact. Silently did nothing for its only use case; caught by the test that had just been written for it. | automatic-gate | artifact-vs-effect | fixed |
 | 2026-08-17 | — | — | `wrong-invocation-path` | promoted -> verification.md catch **5a**, 3 rows (2 human, 1 agent-self), 2026-08-17 |
+| 2026-08-18 | Asserted that a GitHub-sourced plugin install would exclude `node_modules` because it is gitignored, correcting an earlier finding on reasoning alone. Re-tested from outside the repo: still ships 15M including `node_modules`. The correction was wrong and the original finding stood. Retracted in the spec; the residual uncertainty (does a machine with no local checkout get the clean version?) is recorded as untested rather than resolved by argument. | agent-self | premise-drift | fixed |
 | 2026-08-17 | The catch-log skeleton generator searched for a literal newline-delimited marker to strip the source's header. This checkout is CRLF, so the match never fired and the generated skeleton silently kept the workflow repo's own framing, including text about issue numbers meaningless in a consuming project. Failed silently and looked plausible. An assertion on the OUTPUT now refuses to write a skeleton containing workflow-repo text. | agent-self | wrong-invocation-path | fixed+regression-case |
 | 2026-08-17 | Added `{{PROJECT_NAME}}` substitution inside the generic asset installer, which breaks the manifest's core invariant: the project copy no longer equals the source hash, so sync reads `b == a && c != a` as "safe to refresh" and would overwrite a project's own catch-log rows. Caught by reasoning through the hash model before committing, not by a test. Substituted project-owned files now use CLAUDE.md's place-once pattern instead. | agent-self | artifact-vs-effect | fixed |
 | 2026-08-17 | Set `secret_scan=off` in jobs-radar's bootstrap.conf to avoid installing a blocking gitleaks workflow on a repo whose history has never been scanned — and the workflow installed anyway, because `gate_for` matched the generic `.github/workflows/*` -> `ci` rule before the specific one. A switch set, believed effective, and silently inert. Split into separate `secret_scan` and `git_guard` keys; regression case added. | agent-self | artifact-vs-effect | fixed+regression-case |
@@ -153,10 +154,10 @@ outcome text** (done above), so a full-corpus count is still "from the file
 alone, no external context" — it costs one extra line to read, not a
 git-history lookup.
 
-**Current corpus (updated 2026-08-17, after #17 slices 2-4).** 15 individually
-visible rows (agent-self: 8, human: 4, automatic-gate: 3) **plus** two collapsed
-promotion lines (2 human + 1 agent-self each) = **agent-self: 10, human: 8,
-automatic-gate: 3** across 21 catches.
+**Current corpus (updated 2026-08-18, after #26 slices 0-1).** 16 individually
+visible rows (agent-self: 9, human: 4, automatic-gate: 3) **plus** two collapsed
+promotion lines (2 human + 1 agent-self each) = **agent-self: 11, human: 8,
+automatic-gate: 3** across 22 catches.
 
 Read that number carefully, because it is not the #18 measurement and must not
 be quoted as one. It mixes three unlike things: a retrospective backfill of six
@@ -220,7 +221,7 @@ Counted per the rules above — promoted classes excluded, adjacent classes not 
 | `overbroad-assertion` | 2 (jq-in-comments, heredoc false positive) | 1 away — both from this build, both false REDs from an assertion matching data rather than the property claimed |
 | `vacuous-test` | 2 | 1 away |
 | `wrong-invocation-path` | 2 collapsed + 2 new | **promoted 2026-08-17** -> catch 5a. Third instance was a fixture-shape problem, not an invocation-method one — a genuinely new special case under the same parent, which is why the promotion had content rather than pointing at an existing line. |
-| `premise-drift` | 1 | 2 away |
+| `premise-drift` | 2 | 1 away |
 | `silent-truncation` | 1 | 2 away |
 | `unsafe-test-isolation` | 1 | 2 away |
 
@@ -231,5 +232,5 @@ produce its EFFECT, not merely to be present and exit non-zero"* — which
 does not state as a general requirement about guards that die before their own
 logic.
 
-*Archive: none yet — 15 individual rows + 2 collapsed promotion lines = 21 catches
+*Archive: none yet — 16 individual rows + 2 collapsed promotion lines = 22 catches
 accounted for, cap is 50 live rows.*
