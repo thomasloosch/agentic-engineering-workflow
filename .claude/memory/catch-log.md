@@ -6,16 +6,20 @@ loop's **up**-direction: a recurring class becomes a promotion candidate to the
 centre. Spec: #19.
 
 **Status against #19's acceptance criteria.** AC1/AC3/AC4/AC5 satisfied by this
-file. **AC2 (propagation into a fresh project) closes with #17**, not here —
-this file has no manifest entry of its own yet because bootstrap hasn't been
-taught to place it. **AC6 (populated live by a real build) is #18's job.**
+file. **AC2 (propagation) CLOSED 2026-08-17** by #17 slice 2 — with one
+refinement: the skeleton is deliberately **not** manifest-recorded, because the
+manifest means "workflow-sourced and re-syncable" and this file is neither. It
+carries a substituted placeholder and the project writes rows to it, so listing
+it would have sync offering to refresh a project's own defect history.
+**AC6 (populated live by a real build) is #18's job.**
 
-**Not a mirror.** Per #17's Gate-1 decision D2a, `verification.md` and
-`code-review.md` are propagated mirrors and carry a banner saying so. This file
-is the opposite kind of artifact — project-owned data whose entire purpose is
-to accumulate locally — and carries no such banner. Bootstrap will propagate
-its schema/legend as a skeleton with zero rows; the rows below are this
-project's own history and do not travel.
+**Not a mirror, and this file is the SOURCE.** `templates/catch-log.md.template`
+is generated from this file by `scripts/make-catch-log-skeleton.mjs`, which strips
+every data row and every project-specific section, so a new project inherits the
+rules and an empty table and never this repo's rows. A CI check asserts the
+committed skeleton is current — without it, the rules here could change (they
+changed four times in two sessions) while new projects kept inheriting the old
+vocabulary and threshold, silently. **Edit the rules here, then regenerate.**
 
 ---
 
@@ -119,6 +123,8 @@ the test is whether the same fix addresses both — see `vacuous-test` vs
 | 2026-08-14 | The revived block-git-add-all refused the first real commit made after reviving it, because the commit message documented the `git add -A` probe used to verify it. The guard inspects the raw command string, so writing about the guard tripped the guard. Heredoc bodies now stripped before matching; quoted strings deliberately still matched, since ignoring them would make `git add "."` a trivial bypass. | automatic-gate | overbroad-assertion | fixed+regression-case |
 | 2026-08-14 | First attempt at stripping heredoc bodies used `sed`, which applies its script per line, so `.*$` stopped at the first newline and left the entire heredoc body — the thing it existed to remove — intact. Silently did nothing for its only use case; caught by the test that had just been written for it. | automatic-gate | artifact-vs-effect | fixed |
 | 2026-08-17 | — | — | `wrong-invocation-path` | promoted -> verification.md catch **5a**, 3 rows (2 human, 1 agent-self), 2026-08-17 |
+| 2026-08-17 | The catch-log skeleton generator searched for a literal newline-delimited marker to strip the source's header. This checkout is CRLF, so the match never fired and the generated skeleton silently kept the workflow repo's own framing, including text about issue numbers meaningless in a consuming project. Failed silently and looked plausible. An assertion on the OUTPUT now refuses to write a skeleton containing workflow-repo text. | agent-self | wrong-invocation-path | fixed+regression-case |
+| 2026-08-17 | Added `{{PROJECT_NAME}}` substitution inside the generic asset installer, which breaks the manifest's core invariant: the project copy no longer equals the source hash, so sync reads `b == a && c != a` as "safe to refresh" and would overwrite a project's own catch-log rows. Caught by reasoning through the hash model before committing, not by a test. Substituted project-owned files now use CLAUDE.md's place-once pattern instead. | agent-self | artifact-vs-effect | fixed |
 | 2026-08-17 | Set `secret_scan=off` in jobs-radar's bootstrap.conf to avoid installing a blocking gitleaks workflow on a repo whose history has never been scanned — and the workflow installed anyway, because `gate_for` matched the generic `.github/workflows/*` -> `ci` rule before the specific one. A switch set, believed effective, and silently inert. Split into separate `secret_scan` and `git_guard` keys; regression case added. | agent-self | artifact-vs-effect | fixed+regression-case |
 | 2026-08-14 | `guards.yml` was about to be propagated to consumer projects as part of the mechanical control set. It is the workflow repo's own guard-TEST suite and runs three scripts no consumer has, so it would have installed CI that fails on first run — present, red, and training the owner to ignore CI. Caught by reading the file's own header before shipping it. | agent-self | artifact-vs-effect | fixed+regression-case |
 | 2026-08-14 | Reported a planted-secret probe's exit status from a piped command, so the printed code belonged to the last process in the pipe rather than to git. Ground truth (no commit created) was checked separately and did confirm the block, but the stated evidence measured the wrong process. | agent-self | artifact-vs-effect | fixed |
@@ -147,11 +153,10 @@ outcome text** (done above), so a full-corpus count is still "from the file
 alone, no external context" — it costs one extra line to read, not a
 git-history lookup.
 
-**Current corpus (updated 2026-08-17, after #17 slices 3-4).** 13 individually
-visible rows (agent-self: 6, human: 4, automatic-gate: 3) **plus** two collapsed
-promotion lines (`artifact-vs-effect`: 2 human + 1 agent-self; `wrong-invocation-path`:
-2 human + 1 agent-self) = **agent-self: 8, human: 8, automatic-gate: 3** across
-19 catches.
+**Current corpus (updated 2026-08-17, after #17 slices 2-4).** 15 individually
+visible rows (agent-self: 8, human: 4, automatic-gate: 3) **plus** two collapsed
+promotion lines (2 human + 1 agent-self each) = **agent-self: 10, human: 8,
+automatic-gate: 3** across 21 catches.
 
 Read that number carefully, because it is not the #18 measurement and must not
 be quoted as one. It mixes three unlike things: a retrospective backfill of six
@@ -210,11 +215,11 @@ Counted per the rules above — promoted classes excluded, adjacent classes not 
 
 | class | rows | toward promotion |
 |---|---|---|
-| `artifact-vs-effect` | 3 collapsed + 3 new | **promoted** — no longer counts. Three fresh instances across two builds says the principle is documented but not yet absorbed. It is by far the most frequent class here, and every instance is the same shape: something *present* mistaken for something *working*. |
+| `artifact-vs-effect` | 3 collapsed + 4 new | **promoted** — no longer counts. Three fresh instances across two builds says the principle is documented but not yet absorbed. It is by far the most frequent class here, and every instance is the same shape: something *present* mistaken for something *working*. |
 | `fail-open-guard` | 2 (#16 manifest, the dead hooks) | **1 away.** Two builds, two instances, both invisible until something probed for *effect* rather than *presence*. The likeliest next promotion. |
 | `overbroad-assertion` | 2 (jq-in-comments, heredoc false positive) | 1 away — both from this build, both false REDs from an assertion matching data rather than the property claimed |
 | `vacuous-test` | 2 | 1 away |
-| `wrong-invocation-path` | 2 collapsed + 1 new | **promoted 2026-08-17** -> catch 5a. Third instance was a fixture-shape problem, not an invocation-method one — a genuinely new special case under the same parent, which is why the promotion had content rather than pointing at an existing line. |
+| `wrong-invocation-path` | 2 collapsed + 2 new | **promoted 2026-08-17** -> catch 5a. Third instance was a fixture-shape problem, not an invocation-method one — a genuinely new special case under the same parent, which is why the promotion had content rather than pointing at an existing line. |
 | `premise-drift` | 1 | 2 away |
 | `silent-truncation` | 1 | 2 away |
 | `unsafe-test-isolation` | 1 | 2 away |
@@ -226,5 +231,5 @@ produce its EFFECT, not merely to be present and exit non-zero"* — which
 does not state as a general requirement about guards that die before their own
 logic.
 
-*Archive: none yet — 13 individual rows + 2 collapsed promotion lines = 19 catches
+*Archive: none yet — 15 individual rows + 2 collapsed promotion lines = 21 catches
 accounted for, cap is 50 live rows.*

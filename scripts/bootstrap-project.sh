@@ -116,6 +116,7 @@ gate_for() {
     .claude/ci/observe.mjs)            echo observe ;;
     .claude/ci/check-imports.mjs)      echo import_guard ;;
     .claude/git-hooks/*)               echo git_guard ;;
+    .claude/memory/catch-log.md)       echo catch_log ;;
     .claude/tdd/*|.claude/hooks/rotate-tdd-session-log.sh) echo tdd_gate ;;
     *)                                 echo "" ;;
   esac
@@ -224,6 +225,12 @@ place_asset() {
   c="$(hash_of "$src")"
   ensure_dir "$PROJECT_PATH" "$(dirname "$rel")"
 
+  # NOTE: no placeholder substitution here, deliberately. The manifest's three-hash
+  # model assumes the project's copy EQUALS the repo source at copy time. A file
+  # rewritten on install breaks that invariant: sync would read
+  # b == a && c != a as "repo moved, project untouched -> safe to refresh" and
+  # overwrite it. Substituted, project-owned files are therefore placed by their own
+  # step and left out of the manifest — the pattern CLAUDE.md already uses.
   install_it() {
     cp "$src" "$target"
     [[ -n "$want_exec" ]] && chmod +x "$target"
@@ -519,6 +526,27 @@ else
 fi
 
 # ─── Step 12: Initialise current-state.md ─────────────────────────────────────
+
+# ─── Catch-log skeleton (#17 slice 2 / #19) ───────────────────────────────────
+# Placed ONCE and never overwritten. Project-owned data: the rules travel, the rows
+# never do. Deliberately outside the manifest — it carries a placeholder and the
+# project writes to it, so neither half of the three-hash model applies. Same
+# treatment as CLAUDE.md, for the same reason.
+echo "[11b/13] Checking catch-log..."
+CATCHLOG_SRC="$WORKFLOW_DIR/templates/catch-log.md.template"
+CATCHLOG_DST="$PROJECT_PATH/.claude/memory/catch-log.md"
+if ! component_on catch_log; then
+  echo "        SKIPPED component 'catch_log=off' (per .claude/bootstrap.conf)."
+elif [[ -f "$CATCHLOG_DST" ]]; then
+  echo "        catch-log.md already exists — skipping (never overwritten; it holds this project's rows)."
+elif [[ ! -f "$CATCHLOG_SRC" ]]; then
+  echo "        WARN: skeleton not found at $CATCHLOG_SRC — skipping."
+else
+  ensure_dir "$PROJECT_PATH" ".claude/memory"
+  cp "$CATCHLOG_SRC" "$CATCHLOG_DST"
+  sed -i "s/{{PROJECT_NAME}}/$PROJECT_NAME/g" "$CATCHLOG_DST"
+  echo "        Created catch-log.md (rules + empty table)."
+fi
 
 echo "[12/13] Checking current-state.md..."
 if [[ ! -f "$PROJECT_PATH/.claude/memory/current-state.md" ]]; then

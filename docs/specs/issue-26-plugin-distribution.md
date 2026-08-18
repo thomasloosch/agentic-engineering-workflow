@@ -54,13 +54,28 @@ A plugin has no second copy, so it cannot drift. That is the whole argument.
 | half | artifacts | mechanism | why |
 |---|---|---|---|
 | **portable / learning** | skills, `verification.md`, `code-review.md`, catch-log **schema** | marketplace plugin | read-only reference; a project has no business editing it, so there is no reason to copy it |
-| **the one exception** | `engineering-standards.md` | **bootstrap copy** (Q2) | hard-`@`-imported by path; plugin delivery would silently break every project's standards import. #16's fix detects its drift, which was the only reason to move it |
+| **the one exception — PROVISIONAL, see slice 0** | `engineering-standards.md` | **bootstrap copy** (Q2), pending the `@`-import test | hard-`@`-imported by path. Q2 kept it copied to avoid breaking that import — but the copy is per-checkout ephemeral in practice (jobs-radar gitignores it *and* the manifest), so this is a leaky answer that slice 0 must either replace or confirm deliberately |
 | **mechanical wiring** | CI workflows, git hooks, lint config, test entrypoint, `package.json` scripts, `core.hooksPath` | bootstrap + `setup-project.sh` | **must** be files in the consuming repo — CI cannot run a workflow inside a plugin, git cannot execute a hook it cannot see |
 | **project-owned data** | catch-log **rows**, `current-state.md` | neither — created once, never distributed | accumulating locally is the entire point (#17 D2a already settled this) |
 
 The line is drawn by a mechanical test, not by taste: **does something outside Claude Code have to read the file?** If yes (git, GitHub Actions, npm), it must be a real file in the repo. If only Claude Code reads it, it can be a plugin.
 
 ## 3. Slices
+
+**Slice 0 — ANSWER THE `@`-IMPORT QUESTION FIRST. This is the load-bearing unknown and it gates the delivery model.**
+
+**Can a plugin-delivered artifact be `@`-imported by its namespaced path?**
+
+Everything about the standards doc hangs on it:
+
+- **If YES** — the standards doc migrates to the plugin, and each project's `CLAUDE.md` changes its `@`-import line **once**. Clean, and the copy problem disappears for every learning artifact without exception.
+- **If NO** — we accept the copy-leak and lean on #16's drift detection. The doc stays copied, permanently and for a stated reason rather than as an interim default.
+
+**Q2's "keep it copied" was decided on a durability assumption that #17 slice 4 disproved.** jobs-radar gitignores both the portable assets *and* `.asset-manifest`, so the copied standards doc is **per-checkout ephemeral** and its drift state is **per-clone**. A fresh clone has no standards doc at all until bootstrap runs. So the copy model is leaky for precisely the one file it was retained for — which means this spec has to *solve* standards-doc delivery rather than default to "copy for now."
+
+**Test it, do not reason about it.** Concretely: publish the plugin locally, install it, and try `@`-importing the standards doc from a consuming project's `CLAUDE.md` by whatever namespaced path the plugin exposes — then confirm with `/memory` (or an equivalent observable) that the import **actually resolved**, not merely that the line was accepted. A line that silently fails to import is `artifact-vs-effect` on the highest-value artifact in the system, and this program has logged that class five times.
+
+No other slice commits to a delivery model until this is answered.
 
 **Slice 1 — the manifests.** `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json`, modelled on Cole's, pointing at `./.claude/skills`. Verify `claude plugin marketplace add <repo>` then `claude plugin install` works non-interactively, from a clean state.
 
@@ -78,6 +93,7 @@ Each names the instrument that reads it (catch 7).
 
 | # | Criterion | Instrument |
 |---|---|---|
+| 0 | **The `@`-import question is answered by test, not inference** — a plugin-delivered file is `@`-imported from a consuming project and the import is confirmed to RESOLVE (not merely to be accepted). Result recorded either way, and the standards-doc delivery model follows from it | live install + `/memory` or equivalent showing the import loaded |
 | 1 | Both manifests exist and validate against their `$schema`s | a JSON-schema check in CI |
 | 2 | `claude plugin marketplace add <this repo>` then `claude plugin install` succeeds **non-interactively** from a clean marketplace state | scripted run in a fixture `HOME`, asserted exit 0 |
 | 3 | A consumer session loads the skills **from the plugin**, with no copied duplicates in its `.claude/skills/` | `claude plugin list` + absence of the paths in the project tree |

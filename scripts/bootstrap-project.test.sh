@@ -278,6 +278,58 @@ else
   fi
 fi
 
+# 8. The catch-log SKELETON is placed — schema and rules, but NO rows (#17 slice 2).
+#
+#    This is the one learning artifact that is still a file rather than
+#    plugin-delivered, because it is project-OWNED data: its whole purpose is to
+#    accumulate locally. So a new project must get the vocabulary (who-caught set,
+#    error classes, promotion rule, hygiene) and an empty table — never this repo's
+#    rows, which are its own history and do not travel.
+#
+#    Getting this backwards in either direction is a real failure: ship the rows and
+#    every project starts with someone else's defects; ship a bare table and the
+#    project has an instrument with no rules for using it.
+PROJECT=$(make_project "$TESTDIR" "probe-seven")
+if [ -z "$PROJECT" ]; then
+  fail "catch-log skeleton is placed with rules but no rows" "could not create the temp project"
+else
+  run_bootstrap "$PROJECT" "Probe Seven"
+  LOG="$PROJECT/.claude/memory/catch-log.md"
+
+  if [ ! -f "$LOG" ]; then
+    fail "catch-log skeleton is placed with rules but no rows" "not placed at .claude/memory/catch-log.md"
+  else
+    missing=""
+    grep -q 'agent-self'          "$LOG" || missing="$missing who-caught-set"
+    grep -q 'automatic-gate'      "$LOG" || missing="$missing automatic-gate"
+    grep -qi 'promotion'          "$LOG" || missing="$missing promotion-rule"
+    grep -q 'fail-open-guard'     "$LOG" || missing="$missing error-class-legend"
+    # No inherited rows: a data row starts "| 20" (a date). The legend and the
+    # header are tables too, so this must key on the date, not on "any table row".
+    rows=$(grep -c '^| 20' "$LOG" || true)
+
+    if [ -n "$missing" ]; then
+      fail "catch-log skeleton is placed with rules but no rows" "skeleton missing:$missing"
+    elif [ "$rows" -ne 0 ]; then
+      fail "catch-log skeleton is placed with rules but no rows" \
+           "$rows inherited row(s) — a new project must not start with this repo's defects"
+    # Deliberately NOT manifest-recorded, which refines #19's AC2. The manifest
+    # means "workflow-sourced and re-syncable", and this file is neither: it carries
+    # a substituted placeholder (so the project copy never equals the source hash)
+    # and the project writes rows to it. Listing it would make sync offer to refresh
+    # a project's own defect history. Same treatment as CLAUDE.md.
+    elif grep -q '^\.claude/memory/catch-log\.md	' "$PROJECT/.claude/.asset-manifest"; then
+      fail "catch-log skeleton is placed with rules but no rows" \
+           "it IS manifest-recorded — sync would offer to overwrite the project's own rows"
+    elif ! grep -q "Probe Seven" "$LOG"; then
+      fail "catch-log skeleton is placed with rules but no rows" \
+           "{{PROJECT_NAME}} was not substituted"
+    else
+      pass "catch-log skeleton is placed with rules but no rows"
+    fi
+  fi
+fi
+
 rm -rf "$TESTDIR"
 
 echo ""

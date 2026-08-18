@@ -126,6 +126,13 @@ enumerate_workflow_assets() {
   f="$repo/.github/workflows/secret-scan.yml"
   [[ -f "$f" ]] && printf '%s\t%s\t\n' ".github/workflows/secret-scan.yml" "$f"
 
+  # NOT ENUMERATED: the catch-log skeleton (templates/catch-log.md.template).
+  # It carries a {{PROJECT_NAME}} placeholder and is project-OWNED data the project
+  # writes to. Both facts put it outside the manifest's model, which assumes the
+  # project copy equals the repo source at copy time and that a listed asset is
+  # re-syncable. Placed instead by its own step in bootstrap-project.sh, once, never
+  # overwritten — exactly how CLAUDE.md is handled. See #17 slice 2.
+
   # The consumer's own CI, shipped as a template and turned into a real workflow by
   # the owner-run setup-project.sh. It lands under .claude/ci/ rather than in
   # .github/workflows/ precisely because a `.template` sitting in the workflows

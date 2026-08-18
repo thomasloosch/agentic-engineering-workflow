@@ -54,6 +54,13 @@ jobs:
         # belongs in non-bypassable CI on every push/PR, not on a weekly cadence.
         run: bash scripts/check-standards-ssot.sh
 
+      - name: Catch-log skeleton is current (#17 slice 2)
+        # The propagated skeleton is DERIVED from .claude/memory/catch-log.md so the
+        # two cannot hold different rules. Without this check the source's rules can
+        # change — they changed three times in one session — while new projects keep
+        # inheriting the old vocabulary and promotion threshold, silently.
+        run: node scripts/make-catch-log-skeleton.mjs --check
+
       - name: Secret-scan pre-commit guard tests (slice-1)
         run: bash hooks/git/pre-commit.test.sh
 
