@@ -54,7 +54,7 @@ A plugin has no second copy, so it cannot drift. That is the whole argument.
 | half | artifacts | mechanism | why |
 |---|---|---|---|
 | **portable / learning** | skills, `verification.md`, `code-review.md`, catch-log **schema** | marketplace plugin | read-only reference; a project has no business editing it, so there is no reason to copy it |
-| **the one exception — PROVISIONAL, see slice 0** | `engineering-standards.md` | **bootstrap copy** (Q2), pending the `@`-import test | hard-`@`-imported by path. Q2 kept it copied to avoid breaking that import — but the copy is per-checkout ephemeral in practice (jobs-radar gitignores it *and* the manifest), so this is a leaky answer that slice 0 must either replace or confirm deliberately |
+| **the one exception — CONFIRMED by test** | `engineering-standards.md` | **bootstrap copy** (Q2) | hard-`@`-imported by path. Plugin delivery tested and rejected: the version-independent placeholder does not resolve, and the working form embeds the version, so it would break on every release in every project. Revisit trigger in ADR-0007 is exact and narrow |
 | **mechanical wiring** | CI workflows, git hooks, lint config, test entrypoint, `package.json` scripts, `core.hooksPath` | bootstrap + `setup-project.sh` | **must** be files in the consuming repo — CI cannot run a workflow inside a plugin, git cannot execute a hook it cannot see |
 | **project-owned data** | catch-log **rows**, `current-state.md` | neither — created once, never distributed | accumulating locally is the entire point (#17 D2a already settled this) |
 
@@ -77,7 +77,27 @@ Everything about the standards doc hangs on it:
 
 No other slice commits to a delivery model until this is answered.
 
-### Slice 0 — findings so far (2026-08-17). Partially answered; the live half is blocked.
+### Slice 0 — ANSWERED 2026-08-18. Delivery model settled.
+
+**Result:** variant A (`@${CLAUDE_PLUGIN_ROOT}/…`) **failed to resolve**; variant B
+(absolute, version-pinned) **resolved**, returning both sentinel facts. Run in a
+fresh interactive session, checked with `/memory` plus a content question that a
+bare project could not answer.
+
+**Therefore the standards doc stays COPY-propagated — verified, not assumed.** B
+embeds `0.1.0`, and the cache carries no unversioned alias, so a plugin-delivered
+standards doc would break on every release in every project. Worse than the copy.
+
+**The useful half of the result:** plugin files *are* importable. The loader
+reaches into the plugin cache fine — only the version-independent placeholder is
+missing. That makes the revisit trigger exact (ADR-0007): if
+`${CLAUDE_PLUGIN_ROOT}` ever works in memory imports, or the cache gains a `latest`
+alias, plugin delivery for the standards doc reopens with no other rework.
+
+Checklists are unaffected — they are referenced by URL, not `@`-imported, so slices
+3–5 proceed as specified.
+
+<details><summary>Original slice-0 investigation notes (2026-08-17), retained for provenance</summary>
 
 **Established by observation, not inference:**
 
@@ -116,7 +136,11 @@ claude plugin install agentic-engineering-workflow@thomasloosch
 
 `/memory` lists what actually loaded. A line that is accepted but silently fails to import is `artifact-vs-effect` on the highest-value artifact in the system — the class already logged six times here — so "no error appeared" is not evidence.
 
-**Current reading:** finding 2 means even a YES on resolution probably does not rescue plugin delivery for the standards doc, unless a version-independent placeholder works in imports. So the likely outcome is **the copy stands** — but as a *decided* answer with a stated reason, not the interim default Q2 left behind.
+**Current reading (written before the test):** finding 2 means even a YES on resolution probably does not rescue plugin delivery for the standards doc, unless a version-independent placeholder works in imports. So the likely outcome is **the copy stands** — but as a *decided* answer with a stated reason, not the interim default Q2 left behind.
+
+*The test bore this out: A failed, B resolved, copy stands. Retained because the prediction was recorded before the result, which is the only way to tell a real prediction from a rationalisation.*
+
+</details>
 
 **Slice 1 — the manifests.** `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json`, modelled on Cole's, pointing at `./.claude/skills`. Verify `claude plugin marketplace add <repo>` then `claude plugin install` works non-interactively, from a clean state.
 
@@ -134,7 +158,7 @@ Each names the instrument that reads it (catch 7).
 
 | # | Criterion | Instrument |
 |---|---|---|
-| 0 | **The `@`-import question is answered by test, not inference** — a plugin-delivered file is `@`-imported from a consuming project and the import is confirmed to RESOLVE (not merely to be accepted). Result recorded either way, and the standards-doc delivery model follows from it | live install + `/memory` or equivalent showing the import loaded |
+| 0 | ~~The `@`-import question is answered by test~~ **DONE 2026-08-18.** A failed, B resolved; standards doc stays copied, verified | live install + `/memory` + a sentinel content question |
 | 1 | Both manifests exist and validate against their `$schema`s | a JSON-schema check in CI |
 | 2 | `claude plugin marketplace add <this repo>` then `claude plugin install` succeeds **non-interactively** from a clean marketplace state | scripted run in a fixture `HOME`, asserted exit 0 |
 | 3 | A consumer session loads the skills **from the plugin**, with no copied duplicates in its `.claude/skills/` | `claude plugin list` + absence of the paths in the project tree |

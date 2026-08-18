@@ -20,12 +20,42 @@ D2a's banner for them.** Mechanical propagation is unaffected and proceeds.
 no local checklist copy. It is covered by the URL reference in Rule 2, so the gap is
 brief and non-breaking — not worth building throwaway copies to close.
 
-**Q2 — the standards doc stays COPY-propagated.** It is the one file with a hard
-`@.claude/engineering-standards.md` path dependency in every project's `CLAUDE.md`.
-Plugin-delivering it would silently break every project's standards import — a
-fail-open of the highest-value artifact in the system. The only argument for moving
-it was drift, and #16's fix now detects that drift. So it is the **sole learning
-artifact that remains a copy, for a stated reason.**
+**Q2 — the standards doc stays COPY-propagated. VERIFIED BY TEST 2026-08-18, no
+longer provisional.**
+
+Q2 was originally decided on the reasoning that plugin-delivering the doc would
+break the hard `@.claude/engineering-standards.md` import. That reasoning rested on
+a durability assumption which #17 slice 4 disproved (the copy is per-checkout
+ephemeral — jobs-radar gitignores it *and* the manifest). So the answer was
+re-opened and settled empirically instead:
+
+| variant | result |
+|---|---|
+| **A** — `@${CLAUDE_PLUGIN_ROOT}/docs/standards/engineering-standards.md` | **FAILED to resolve** |
+| **B** — `@~/.claude/plugins/cache/<mkt>/<plugin>/0.1.0/docs/standards/…` | **RESOLVED** — returned the two sentinel facts (the 2026-08-17 hook-retirement date and "Rule of three before extracting"), neither guessable from a bare project |
+
+**What this establishes, precisely.** Plugin-delivered files *are* importable — B
+proves the memory-import loader resolves into the plugin cache. What fails is the
+**version-independent placeholder**. And the cache path is version-namespaced
+(`.../<plugin>/0.1.0/...`, with no `latest` alias — the cache directory contained
+only the version), so variant B embeds the version and would break on **every
+release, in every project**.
+
+A propagation mechanism that requires editing every consumer's `CLAUDE.md` on each
+version bump is strictly worse than the copy it would replace. **So the copy stands
+as verified fact rather than as an interim default**, and the standards doc is the
+sole learning artifact that remains copy-propagated.
+
+> **Revisit trigger — narrow and specific.** If Claude Code gains a
+> version-independent way to reference a plugin file from a `CLAUDE.md` import —
+> `${CLAUDE_PLUGIN_ROOT}` working in memory imports, or a `latest`/unversioned
+> alias in the cache path — plugin delivery for the standards doc reopens
+> immediately, because B already proves the import itself resolves. Nothing else
+> about this decision needs revisiting; only that one capability.
+
+This does **not** affect the checklists. `verification.md` and `code-review.md` are
+referenced by URL (Rule 2), not by `@`-import path, so they carry no such
+dependency and remain plugin-delivered.
 
 **Mechanism finds adopted rather than rebuilt:** the CI version guard invokes
 `claude plugin tag --dry-run` (it already validates plugin.json ↔ marketplace
