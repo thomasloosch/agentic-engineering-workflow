@@ -54,6 +54,15 @@ jobs:
         # belongs in non-bypassable CI on every push/PR, not on a weekly cadence.
         run: bash scripts/check-standards-ssot.sh
 
+      - name: Plugin version bumped when shipped content changes (#26 slice 2)
+        # An unbumped plugin change is a SILENT no-op: consumers keep the cached
+        # copy and never receive it. Nothing errors and nothing warns, so the
+        # author believes it shipped. Manifest agreement is validated separately by
+        # `claude plugin tag --dry-run`, which is the tool's own validator and is
+        # reused rather than reimplemented; this adds the content-vs-version check
+        # that validator does not perform.
+        run: bash scripts/check-plugin-version.sh "${{ github.event.before || 'HEAD~1' }}"
+
       - name: Catch-log skeleton is current (#17 slice 2)
         # The propagated skeleton is DERIVED from .claude/memory/catch-log.md so the
         # two cannot hold different rules. Without this check the source's rules can
