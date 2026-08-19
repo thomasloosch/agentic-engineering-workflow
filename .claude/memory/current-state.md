@@ -165,7 +165,20 @@ individual project repos. Separate from product work (Sovary); used to build it.
   production exercise of the agent system; surfaced workflow findings W1-W5.
 
 ## In flight / next
-- NEXT: **The harness program — #16 → #19 → #17 → #18 → #24.** Gate-1 specs for
+- **DONE 2026-08-19: #16, #17, #26. The harness-hardening program's build half is
+  complete.** #26 (plugin distribution) closed — all 5 slices; ADR-0007 ACCEPTED.
+  The delivery model is settled BY TEST: `@${CLAUDE_PLUGIN_ROOT}` does NOT resolve
+  in memory imports, the absolute form does but embeds the plugin version, so the
+  standards doc stays copy-propagated. Everything else portable is plugin-delivered.
+  Plugin is at 0.4.0; a CI guard fails the build on shipped changes without a bump
+  (it has caught two real omissions). Auto-update: `FORCE_AUTOUPDATE_PLUGINS=1`
+  enables the plugin half alone — evidence-backed but NOT behaviour-observed, so
+  unconfirmed until a session refreshes with it set.
+  #33's runtime-faithful fixture tier landed (`scripts/lib/runtime-fixture.sh`);
+  its UNC audit found and fixed a fail-open in `check-imports.mjs`.
+  **NEXT: #18 (semver acceptance harness)** — the measurement the whole program
+  exists to produce. Everything it depends on (#16, #17, #19) is done.
+- Superseded plan (kept for the ordering rationale): **#16 → #19 → #17 → #18 → #24.** Gate-1 specs for
   #17/#18/#19 APPROVED 2026-08-13. Build in that order; the specs are in
   docs/specs/ and carry their gate decisions at the top.
   - **#16 — CLOSED 2026-08-13 (48a381d), CI green.** Provenance now comes from the
