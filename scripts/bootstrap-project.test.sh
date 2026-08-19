@@ -21,11 +21,22 @@ FAILED=0
 pass() { echo "  ✔ $1"; }
 fail() { echo "  ✖ $1"; echo "      $2"; FAILED=1; }
 
+# shellcheck source=lib/runtime-fixture.sh
+source "$(cd "$(dirname "$0")" && pwd)/lib/runtime-fixture.sh"
+# shellcheck source=lib/portable-fs.sh
+source "$(cd "$(dirname "$0")" && pwd)/lib/portable-fs.sh"
+
 # Fresh throwaway project: a git repo in its own directory under the temp work
-# area. Echoes the project path; the temp work area is removed on exit.
+# area. Echoes the project path.
+#
+# Uses ensure_dir rather than `mkdir -p "$1/$2"`. The original version used the
+# latter and worked for every /tmp fixture — then failed the moment a UNC-rooted
+# fixture was introduced, because `mkdir -p` on an absolute UNC path cannot run.
+# This helper had the same latent defect as the code it tests, hidden by the same
+# missing condition, and the runtime-faithful tier surfaced it on its first use.
 make_project() {  # make_project <parent> <name> ; echoes <projectdir>
   local proj="$1/$2"
-  mkdir -p "$proj" || return 1
+  ensure_dir "$1" "$2" || return 1
   ( cd "$proj" || exit 1; git init -q . ) || return 1
   echo "$proj"
 }
@@ -331,6 +342,45 @@ else
 fi
 
 rm -rf "$TESTDIR"
+
+# 9. RUNTIME-FAITHFUL CASE (#33, catch 5a). Everything above runs under
+#    `mktemp -d`, an MSYS path where `mkdir -p` on an absolute path works fine.
+#    Production is a UNC path where it does not — which is why bootstrap passed
+#    this entire suite while being unable to touch a single real project.
+#
+#    This case runs bootstrap end-to-end against a UNC-rooted fixture, the path
+#    shape every real target has. It is one case rather than a conversion of all
+#    thirteen: the tier belongs where the code touches path semantics, and adding
+#    it everywhere would be churn without adding coverage.
+UNCDIR="$(runtime_mktemp_d bootstrap-test)"
+if [ -z "$UNCDIR" ]; then
+  fail "bootstrap works against a UNC-rooted project (production path shape)" \
+       "could not build the runtime-faithful fixture — refusing to fall back to /tmp, which would test the wrong runtime"
+else
+  PROJECT=$(make_project "$UNCDIR" "unc-probe")
+  if [ -z "$PROJECT" ]; then
+    fail "bootstrap works against a UNC-rooted project (production path shape)" \
+         "could not create the project under $UNCDIR"
+  else
+    ( cd "$PROJECT" || exit 1; git init -q . ) >/dev/null 2>&1
+    out=$(bash "$BOOTSTRAP" "$PROJECT" "UNC Probe" 2>&1); rc=$?
+    entries=$(count_manifest_entries "$PROJECT")
+    if [ "$rc" -ne 0 ]; then
+      fail "bootstrap works against a UNC-rooted project (production path shape)" \
+           "exited $rc. Output:
+$(printf '%s' "$out" | tail -5)"
+    elif [ "$entries" -eq 0 ]; then
+      fail "bootstrap works against a UNC-rooted project (production path shape)" \
+           "manifest is empty — bootstrap ran but recorded nothing"
+    elif [ ! -f "$PROJECT/setup-project.sh" ]; then
+      fail "bootstrap works against a UNC-rooted project (production path shape)" \
+           "setup-project.sh was not emitted"
+    else
+      pass "bootstrap works against a UNC-rooted project (production path shape)"
+    fi
+  fi
+  runtime_fixture_cleanup "$UNCDIR"
+fi
 
 echo ""
 if [ "$FAILED" -eq 0 ]; then echo "ALL GREEN"; else echo "SOME RED"; fi

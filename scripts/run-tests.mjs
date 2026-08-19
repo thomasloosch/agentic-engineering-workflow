@@ -38,7 +38,7 @@ const NODE_DIRS = ['.claude/tdd', 'scripts'];
 // never discovered, and the four lifecycle hooks went un-suited entirely. Same
 // silent-truncation class as the hardcoded two-file command #13 fixed: discovery
 // that quietly covers less than it appears to.
-const SH_DIRS = ['.claude/hooks', 'hooks', 'hooks/git', 'scripts'];
+const SH_DIRS = ['.claude/hooks', 'hooks', 'hooks/git', 'scripts', 'scripts/lib'];
 
 const NODE_RE = /\.test\.(js|mjs)$/;
 const SH_RE = /\.test\.sh$/;

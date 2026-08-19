@@ -28,7 +28,7 @@
  * Usage: node scripts/check-imports.mjs <file-or-dir> [<file-or-dir> ...]
  */
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { join, extname } from 'node:path';
+import { join, extname, resolve, dirname, sep } from 'node:path';
 import { builtinModules } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
@@ -253,24 +253,84 @@ export function findUndeclared(files, adapter, declared) {
 }
 
 // ─── CLI ──────────────────────────────────────────────────────────────────────
+// resolveManifestRoot — where the dependency manifest should be read from.
+//
+// Rule: the manifest belongs to the code being SCANNED, never to wherever the
+// checker happens to be invoked from.
+//
+//   target inside cwd   -> walk up from the target, stopping at cwd
+//   target outside cwd  -> use the target itself, no walking
+//
+// Three failure modes, all hit while getting this right:
+//   - reading it from cwd (the original defect): scanning project B while standing
+//     in project A judged B's imports against A's dependencies, silently passing
+//     when they happened to overlap;
+//   - reading it ONLY from the scan directory: `check-imports src` from a project
+//     root then loud-skips a project that plainly has a manifest one level up;
+//   - walking up without a bound: from a temp directory it escapes the project
+//     entirely and picks up a stray manifest in the user's home.
+//
+// Bounding the walk at cwd satisfies all three: a relative target resolves within
+// its own project, and an absolute target elsewhere cannot borrow this one's.
+function resolveManifestRoot(argv, cwd) {
+  let start = null;
+  for (const a of argv) {
+    if (a.startsWith('-')) continue;
+    const abs = resolve(cwd, a);
+    try {
+      start = statSync(abs).isDirectory() ? abs : dirname(abs);
+      break;
+    } catch { /* unreadable path — try the next one */ }
+  }
+  if (!start) return cwd;
+
+  const cwdAbs = resolve(cwd);
+  const inside = start === cwdAbs || start.startsWith(cwdAbs + sep);
+  if (!inside) return start;            // foreign target: never borrow cwd's manifest
+
+  let dir = start;
+  for (;;) {
+    if (detectAdapter(dir)) return dir;
+    if (dir === cwdAbs) return start;   // bounded: do not escape the invocation root
+    const parent = dirname(dir);
+    if (parent === dir) return start;
+    dir = parent;
+  }
+}
+
 export function run(argv, cwd) {
   if (!argv.length) {
     process.stderr.write('check-imports: CHECKER ERROR — no paths given\n');
     return 2;
   }
-  const adapter = detectAdapter(cwd);
+
+  // The manifest is resolved from the SCAN TARGET, not from cwd.
+  //
+  // It used to come from cwd while the files came from argv, and nothing asserted
+  // the two agreed. Pointed at a project from outside it, the checker would load
+  // ANOTHER project's dependency manifest and judge this project's imports against
+  // it — silently passing when the imports happened to match, and falsely flagging
+  // when they didn't. Both loud-skip guards were bypassed on that path: files were
+  // found, and an adapter was found, just the wrong one. A fail-open in a checker
+  // whose header promises it never silently passes.
+  //
+  // Found by auditing the guards against a real UNC target rather than the usual
+  // fixture, where cwd and target always coincide (#33). The test harness pinned
+  // cwd to the fixture root, so the divergence was structurally untestable.
+  const target = resolveManifestRoot(argv, cwd);
+  const adapter = detectAdapter(target);
   if (!adapter) {
     // LOUD skip — visible outcome, never a silent pass.
     process.stdout.write(
       'check-imports: SKIPPED — no adapter for this ecosystem (no recognized ' +
-      'dependency manifest found in ' + cwd + '). This is NOT a pass: there is ' +
+      'dependency manifest found in ' + target + '). This is NOT a pass: there is ' +
       'no manifest to check imports against.\n');
     return 0;
   }
 
   let declared;
   try {
-    declared = adapter.loadDeclared(cwd);
+    declared = adapter.loadDeclared(target);
   } catch (err) {
     process.stderr.write(
       `check-imports: CHECKER ERROR — could not read/parse ${adapter.manifestFile}: ` +

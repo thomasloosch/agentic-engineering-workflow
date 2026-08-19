@@ -148,7 +148,40 @@ claude plugin install agentic-engineering-workflow@thomasloosch
 
 **Slice 3 — move the checklists into the plugin.** `verification.md`, `code-review.md` become plugin-delivered. Removes the need for #17's D2a mirror banner *for these two files*.
 
-**Slice 4 — auto-update path.** Investigate lifting `DISABLE_AUTOUPDATER` and using per-marketplace `autoUpdate`. If blocked, wire the fallback into #22's drift-check with a "what changed / next session gets vX" report. **A SessionStart update hook is out of scope and rejected in the ADR** — 5–6 s/session for zero freshness gain, because the update cannot apply until the next session regardless.
+**Slice 4 — auto-update path. INVESTIGATED 2026-08-19; the primary path exists.**
+
+The fallback is **not needed as the primary**, which was the open question.
+
+- **`autoUpdate` is a real per-marketplace boolean**, settable in settings.json under
+  `extraKnownMarketplaces.<name>.autoUpdate`, with a schema describing it as *"Whether to
+  automatically update this marketplace and its installed plugins on startup"*. Resolution order is
+  settings → `known_marketplaces.json` → a built-in allowlist that defaults official Anthropic
+  marketplaces to true and third-party ones to false. There is **no CLI flag** for it; the surfaces
+  are settings.json and the interactive `/plugin` toggle.
+- **`DISABLE_AUTOUPDATER` gates both** the CLI self-updater and plugin auto-update — they share one
+  gate function. That is why the official marketplace here has not refreshed since 2026-04-14
+  despite defaulting to auto-update.
+- **`FORCE_AUTOUPDATE_PLUGINS=1` re-enables plugin auto-update ALONE**, leaving CLI self-update
+  disabled. This is the answer to the original question: plugin freshness does not require
+  accepting CLI self-update.
+- **Trigger shape:** once per session start, in the background, after a random 0–10 minute delay,
+  and **only in interactive sessions** — the call chain runs from a REPL effect, so `-p` runs never
+  auto-update. There is no repeating timer. Separately, `claude plugin update` *does* refresh the
+  marketplace first, throttled by a 30-second recency window.
+
+**Recommended configuration** (not applied — it changes the user's environment):
+`FORCE_AUTOUPDATE_PLUGINS=1` in the environment, plus `"autoUpdate": true` on this marketplace's
+`extraKnownMarketplaces` entry once it is registered for real.
+
+**Confidence, stated honestly: schema + control-flow read from the CLI binary, corroborated by the
+four-month-stale `lastUpdated` timestamp. NOT behaviour-observed.** Per this repo's own rule that
+present ≠ working, the mechanism is not confirmed until a session actually refreshes with the
+variable set. **Verification step:** set `FORCE_AUTOUPDATE_PLUGINS=1`, start an interactive session,
+wait past the jitter window, and check that `known_marketplaces.json`'s `lastUpdated` has moved.
+
+**A SessionStart update hook remains out of scope and rejected in the ADR** — and the investigation
+strengthens that: the built-in pass already runs at startup with jitter, so a hook would duplicate
+it at 5–6 s/session for no freshness gain.
 
 **Slice 5 — docs.** State the next-session currency plainly wherever propagation is described.
 

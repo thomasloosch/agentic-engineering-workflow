@@ -230,6 +230,20 @@ function cli(root, args) {
   }
 }
 
+// Run with cwd DELIBERATELY different from the target. Every other case here
+// pins cwd to the fixture root, which is why the cwd/target divergence bug was
+// structurally untestable by this harness: the two always coincided, so the
+// checker could read one project's manifest while scanning another's files and
+// no test could express it.
+function cliFromElsewhere(elsewhere, args) {
+  try {
+    const out = execFileSync('node', [CHECKER, ...args], { cwd: elsewhere, encoding: 'utf8' });
+    return { code: 0, out };
+  } catch (e) {
+    return { code: e.status, out: (e.stdout || '') + (e.stderr || '') };
+  }
+}
+
 // clean node project -> exit 0
 {
   const root = tmp();
@@ -280,6 +294,54 @@ function cli(root, args) {
   check('CLI: malformed manifest -> exit 2 (CHECKER ERROR)', r.code === 2, `code=${r.code} out=${r.out}`);
   check('CLI: error message is distinct from a finding', /CHECKER ERROR/.test(r.out) && !/HALLUCINATED/.test(r.out), r.out);
   rmSync(root, { recursive: true, force: true });
+}
+
+// ── cwd/target divergence (#33 audit) ────────────────────────────────────────
+// The manifest must come from the SCAN TARGET, never from cwd. It used to come
+// from cwd while files came from argv, so running the checker at a project from
+// outside it judged that project's imports against a DIFFERENT project's
+// dependency manifest — silently passing when they happened to match. Found by
+// auditing the guards against a real UNC target instead of the usual fixture.
+
+// target has NO manifest -> must LOUD SKIP even though cwd has one
+{
+  const elsewhere = tmp();
+  w(elsewhere, 'package.json', JSON.stringify({ dependencies: { react: '18' } }));
+  const target = tmp();
+  w(target, 'src/app.js', "import x from 'react'\n");
+  const r = cliFromElsewhere(elsewhere, [target]);
+  check('CLI: target without manifest -> loud SKIP, not a silent pass borrowed from cwd',
+    r.code === 0 && /SKIPPED/.test(r.out), `code=${r.code} out=${r.out}`);
+  rmSync(elsewhere, { recursive: true, force: true });
+  rmSync(target, { recursive: true, force: true });
+}
+
+// target declares the dep, cwd does not -> must be CLEAN (judged by the target)
+{
+  const elsewhere = tmp();
+  w(elsewhere, 'package.json', JSON.stringify({ dependencies: {} }));
+  const target = tmp();
+  w(target, 'package.json', JSON.stringify({ dependencies: { react: '18' } }));
+  w(target, 'src/app.js', "import x from 'react'\n");
+  const r = cliFromElsewhere(elsewhere, [target]);
+  check("CLI: target's own manifest decides -> declared dep is clean",
+    r.code === 0 && !/HALLUCINATED/.test(r.out), `code=${r.code} out=${r.out}`);
+  rmSync(elsewhere, { recursive: true, force: true });
+  rmSync(target, { recursive: true, force: true });
+}
+
+// target does NOT declare it, cwd does -> must FLAG (the silent-pass case)
+{
+  const elsewhere = tmp();
+  w(elsewhere, 'package.json', JSON.stringify({ dependencies: { react: '18' } }));
+  const target = tmp();
+  w(target, 'package.json', JSON.stringify({ dependencies: {} }));
+  w(target, 'src/app.js', "import x from 'react'\n");
+  const r = cliFromElsewhere(elsewhere, [target]);
+  check("CLI: cwd's manifest must not mask an undeclared import in the target",
+    r.code === 1 && /HALLUCINATED/.test(r.out), `code=${r.code} out=${r.out}`);
+  rmSync(elsewhere, { recursive: true, force: true });
+  rmSync(target, { recursive: true, force: true });
 }
 
 process.stdout.write('\n' + (failed ? 'SOME RED' : 'ALL GREEN') + '\n');
