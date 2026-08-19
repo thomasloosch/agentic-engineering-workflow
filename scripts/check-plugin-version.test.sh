@@ -112,6 +112,47 @@ $out"
   fi
 fi
 
+# 5. A SHALLOW clone must not silently pass. Regression case for a real fail-open:
+#    CI checks out at depth 1, so the base commit is absent. `git rev-parse --verify`
+#    still resolves a full SHA that is not present, the subsequent `git diff` wrote
+#    "fatal: bad object", and a `|| true` turned that into an empty result which read
+#    as "nothing changed". The guard reported OK on a commit that HAD changed shipped
+#    content — a fail-open inside the guard written to prevent fail-opens.
+#
+#    This fixture reproduces the production condition (a shallow checkout) rather
+#    than the convenient one, which is the point of catch 5a.
+REPO=$(make_repo "$TESTDIR/e" "1.0.0")
+if [ -z "$REPO" ]; then
+  fail "shallow clone -> loud skip, never silent pass" "fixture build failed"
+else
+  ( cd "$REPO" || exit 1
+    printf -- '---\nname: demo\n---\n# Demo CHANGED\n' > .claude/skills/demo/SKILL.md
+    git add -A >/dev/null 2>&1; git commit -q -m "change skill, no bump" )
+  BASE_SHA=$( cd "$REPO" && git rev-parse HEAD~1 )
+  SHALLOW="$TESTDIR/e/shallow"
+  git clone -q --depth 1 "file://$REPO" "$SHALLOW" 2>/dev/null
+
+  if [ ! -d "$SHALLOW" ]; then
+    fail "shallow clone -> loud skip, never silent pass" "could not create the shallow clone"
+  else
+    cp "$GUARD" "$SHALLOW/scripts/check-plugin-version.sh" 2>/dev/null
+    out=$( ( cd "$SHALLOW" || exit 1; bash scripts/check-plugin-version.sh "$BASE_SHA" ) 2>&1 )
+    rc=$?
+    # Acceptable: a loud skip, or a hard failure. NOT acceptable: exit 0 claiming
+    # nothing changed, because shipped content demonstrably did change.
+    if printf '%s' "$out" | grep -q 'no shipped plugin content changed'; then
+      fail "shallow clone -> loud skip, never silent pass" \
+           "reported 'nothing changed' when the base commit is absent — this is the fail-open. Output:
+$out"
+    elif printf '%s' "$out" | grep -qE 'LOUD skip|could not diff'; then
+      pass "shallow clone -> loud skip, never silent pass"
+    else
+      fail "shallow clone -> loud skip, never silent pass" "rc=$rc, unexpected output:
+$out"
+    fi
+  fi
+fi
+
 echo ""
 if [ "$FAILED" -eq 0 ]; then echo "ALL GREEN"; else echo "SOME RED"; fi
 exit "$FAILED"

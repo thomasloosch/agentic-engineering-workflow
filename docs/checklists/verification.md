@@ -46,6 +46,27 @@ symptom.
    ignored it. Green in the working state ≠ shipped correctly.
 2. **Confirm the guard actually fired** — absence of the "hook was ignored" hint is
    the proof-in-place, not the test passing.
+
+   **2a. A guard that cannot run must never report success.** *(Added 2026-08-18 on
+   the third instance — promoted from the catch-log per its rule-of-three.)* The
+   recurring shape is not a guard giving the wrong answer; it is a guard that never
+   reached its own logic and returned a value indistinguishable from "all clear":
+
+   - the asset manifest emptied itself, and the drift detector reported a project
+     healthy while tracking nothing;
+   - four lifecycle hooks exited `127` on a missing binary, which Claude Code treats
+     as non-blocking, so `git add -A` passed a guard built to stop it;
+   - the plugin-version guard diffed against a commit absent from a shallow CI
+     checkout, and an or-true suffix turned `fatal: bad object` into an empty result
+     that read as "nothing changed".
+
+   *Mechanical checks, all three learned the hard way:* never let an error path
+   collapse into the success value — no `|| true` around a command whose **empty
+   output means "nothing to do"**. Distinguish *ran and found nothing* from *could
+   not run*. When a guard cannot run, **exit loudly** and say no check occurred;
+   silence is the one outcome that is always wrong. And a guard's own test suite
+   must include the *degraded environment* — the missing tool, the shallow clone,
+   the absent ref — because that is where this class lives, never in the happy path.
 3. **Mutation-test any load-bearing guard** — stub it to always-pass; if the negative
    cases don't then fail, the tests are vacuous.
 4. **Exec bit on new `*.sh`** — the agent file-creation path lands scripts `100644`;

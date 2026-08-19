@@ -42,11 +42,22 @@ fail() { echo "check-plugin-version: $1" >&2; exit 1; }
 
 [ -f "$MANIFEST" ] || fail "no $MANIFEST — is this the workflow repo?"
 
-# No base to compare against (shallow clone, first commit) -> say so rather than
-# passing silently. A guard that cannot run must not report success.
-if ! git rev-parse --verify --quiet "$BASE" >/dev/null; then
-  echo "check-plugin-version: SKIPPED — base ref '$BASE' not available."
-  echo "check-plugin-version: this is a LOUD skip: no version check ran."
+# No base to compare against -> say so rather than passing silently. A guard that
+# cannot run must not report success.
+#
+# `cat-file -e <ref>^{commit}` rather than `rev-parse --verify`: in a SHALLOW clone
+# rev-parse can resolve a full SHA that is not actually present, so the check would
+# pass and the diff below would then fail. That is exactly what happened in CI —
+# actions/checkout defaults to depth 1, the base commit was absent, `git diff` wrote
+# "fatal: bad object" to stderr, and the old `|| true` turned that into an empty
+# result which read as "nothing changed". The guard reported OK on a commit that
+# had in fact changed shipped content: a fail-open, in the guard written to prevent
+# fail-opens. The workflow now also fetches enough history; this is the second layer.
+if ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+  echo "check-plugin-version: SKIPPED — base commit '$BASE' is not present in this clone." >&2
+  echo "check-plugin-version: this is a LOUD skip: NO version check ran." >&2
+  echo "check-plugin-version: if this is CI, deepen the checkout (fetch-depth) so the" >&2
+  echo "check-plugin-version: base commit exists — a skipped guard protects nothing." >&2
   exit 0
 fi
 
@@ -58,7 +69,12 @@ read_version() {  # read_version <ref|WORKTREE>
   fi
 }
 
-changed="$(git diff --name-only "$BASE" HEAD -- "${SHIPPED_PATHS[@]}" 2>/dev/null || true)"
+# NOT `|| true`. A failing diff must be fatal, never an empty result: an empty
+# result means "nothing changed", and reporting that when the comparison could not
+# run is the fail-open this guard exists to prevent.
+if ! changed="$(git diff --name-only "$BASE" HEAD -- "${SHIPPED_PATHS[@]}" 2>&1)"; then
+  fail "could not diff against '$BASE': $changed"
+fi
 
 if [ -z "$changed" ]; then
   echo "check-plugin-version: OK — no shipped plugin content changed since $BASE."

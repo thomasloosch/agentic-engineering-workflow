@@ -16,6 +16,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The plugin-version guard diffs shipped content against the previous
+          # commit, and actions/checkout defaults to depth 1 — so the base commit
+          # was absent and the guard silently reported "nothing changed" on a push
+          # that HAD changed shipped content. Full history is the simplest fix that
+          # cannot be off-by-one; the guard also fails closed on a missing base now,
+          # so neither layer is load-bearing alone.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
