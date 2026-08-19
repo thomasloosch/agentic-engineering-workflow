@@ -121,6 +121,7 @@ the test is whether the same fix addresses both — see `vacuous-test` vs
 | 2026-08-17 | — | — | `wrong-invocation-path` | promoted -> verification.md catch **5a**, 3 rows (2 human, 1 agent-self), 2026-08-17 |
 | 2026-08-18 | — | — | `fail-open-guard` | promoted -> verification.md catch **2a**, 3 rows (0 human, 3 agent-self), 2026-08-18 |
 | 2026-08-19 | — | — | `overbroad-assertion` | promoted -> verification.md catch **3a**, 3 rows (0 human, 2 automatic-gate, 1 agent-self), 2026-08-19 |
+| 2026-08-19 | Posted a GitHub comment with an inline bash body containing backticks; the shell ran the backticked text as command substitution and silently ate a fragment, leaving a mangled sentence on the issue. A recorded lesson already says to use --body-file for exactly this and it was not followed. Caught by reading the posted comment back rather than trusting the exit code. | agent-self | artifact-vs-effect | fixed |
 | 2026-08-19 | `check-imports.mjs` read the dependency manifest from `process.cwd()` while taking scan paths from argv, with nothing asserting the two agreed. Pointed at a project from outside it, the guard judged that project's imports against a DIFFERENT project's manifest — silently passing when they happened to overlap, and both loud-skip branches bypassed because files and an adapter were found, just the wrong adapter. Found by auditing the guards against a real UNC target instead of the usual fixture, where cwd and target always coincide. | agent-self | fail-open-guard | fixed+regression-case |
 | 2026-08-19 | The fix for the above over-corrected twice before landing: resolving the manifest only from the scan directory made `check-imports src` loud-skip a project that HAS one a level up, and then an unbounded upward walk escaped the project entirely and picked up a stray manifest in the Windows home. Both caught by the existing suite within seconds. Re-classified 2026-08-19 from `overbroad-assertion`: the first half is a guard declining to check what it should, which is this class, not an assertion failing on correct input. | automatic-gate | fail-open-guard | fixed |
 | 2026-08-19 | `make_project` in the bootstrap suite used `mkdir -p` on an absolute path — the same UNC defect as the code it tests, hidden by the same missing condition. Surfaced the moment a UNC-rooted fixture was introduced, on its first use. | automatic-gate | wrong-invocation-path | fixed |
@@ -155,10 +156,10 @@ outcome text** (done above), so a full-corpus count is still "from the file
 alone, no external context" — it costs one extra line to read, not a
 git-history lookup.
 
-**Current corpus (updated 2026-08-19, after the overbroad-assertion promotion).**
-15 individually visible rows (agent-self: 8, human: 4, automatic-gate: 3) **plus**
-four collapsed promotion lines (2h+1a, 2h+1a, 0h+3a, 0h+1a+2g) =
-**agent-self: 14, human: 8, automatic-gate: 5** across 27 catches.
+**Current corpus (updated 2026-08-19, end of the #26 program).** 16 individually
+visible rows (agent-self: 9, human: 4, automatic-gate: 3) **plus** four collapsed
+promotion lines (2h+1a, 2h+1a, 0h+3a, 0h+1a+2g) = **agent-self: 15, human: 8,
+automatic-gate: 5** across 28 catches.
 
 Read that number carefully, because it is not the #18 measurement and must not
 be quoted as one. It mixes three unlike things: a retrospective backfill of six
@@ -233,5 +234,5 @@ produce its EFFECT, not merely to be present and exit non-zero"* — which
 does not state as a general requirement about guards that die before their own
 logic.
 
-*Archive: none yet — 15 individual rows + 4 collapsed promotion lines = 27 catches
+*Archive: none yet — 16 individual rows + 4 collapsed promotion lines = 28 catches
 accounted for, cap is 50 live rows.*
