@@ -183,7 +183,7 @@ wait past the jitter window, and check that `known_marketplaces.json`'s `lastUpd
 strengthens that: the built-in pass already runs at startup with jitter, so a hook would duplicate
 it at 5–6 s/session for no freshness gain.
 
-**Slice 5 — docs.** State the next-session currency plainly wherever propagation is described.
+**Slice 5 — docs. DONE 2026-08-19.** README gains a "How this reaches a project" section: the two-mechanism split with the mechanical test for which half a file belongs to, the standards-doc exception and why, the next-session currency stated plainly (with the auto-update knobs and the interactive-only caveat), and the release rule that an unbumped plugin change is a silent no-op. Verified no doc claims live updates.
 
 ## 4. Acceptance criteria
 
@@ -198,7 +198,7 @@ Each names the instrument that reads it (catch 7).
 | 4 | CI **fails** when shipped plugin content changes with an unchanged `plugin.json` version | deliberate un-bumped change on a branch; assert the job goes red |
 | 5 | **Mutation check:** stub the version guard to always-pass and confirm AC4 goes red | catch 3 — a guard that stays green with itself removed is vacuous |
 | 6 | The mechanical half still installs via bootstrap and is unaffected | `scripts/bootstrap-project.test.sh` still green; manifest still lists the mechanical assets |
-| 7 | No doc claims live updates; next-session currency stated where propagation is described | grep for the claim; read the propagation docs |
+| 7 | ~~No doc claims live updates~~ **DONE** — verified by grep; currency stated in README and ADR-0007 | grep for the claim; read the propagation docs |
 | 8 | ~~jobs-radar's stale standards doc~~ — **moved out of this issue.** Q2 keeps the standards doc copy-propagated, so this is repaired by **#17 slice 4** (re-bootstrap) and does not wait on the plugin | `sha256sum` against canonical, in #17 |
 
 **AC4 is the load-bearing one.** An un-versioned plugin change is a **silent** no-op — the same fail-open shape as #16 and the dead hooks, which is now this program's most frequent defect class (`fail-open-guard`, 2 of 3 toward promotion). A guard against it is not optional polish.

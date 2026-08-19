@@ -117,14 +117,12 @@ the test is whether the same fix addresses both — see `vacuous-test` vs
 | 2026-08-13 | — | — | `artifact-vs-effect` | promoted -> verification.md catch 1, 3 rows (2 human, 1 agent-self), 2026-08-13 |
 | 2026-08-14 | ADR-0002 attributed the dead hooks to the MINGW runtime (`$HOME` path assumptions). Live probes showed hooks fire and block fine here — the runtime premise was wrong, and the real cause was the missing `jq`. A documented decision resting on an unverified mechanism. | human | premise-drift | fixed |
 | 2026-08-14 | `SH_DIRS` in run-tests.mjs listed `.claude/hooks` and `hooks/git` but not `hooks` itself, so a test file placed there was never discovered and the four lifecycle hooks had no suite at all. | agent-self | silent-truncation | fixed+regression-case |
-| 2026-08-14 | First version of the "no hook invokes jq" assertion matched the word `jq` in the new explanatory comments and in the test file itself, reporting all four fixed hooks as still broken. A false RED. | automatic-gate | overbroad-assertion | fixed |
-| 2026-08-14 | The revived block-git-add-all refused the first real commit made after reviving it, because the commit message documented the `git add -A` probe used to verify it. The guard inspects the raw command string, so writing about the guard tripped the guard. Heredoc bodies now stripped before matching; quoted strings deliberately still matched, since ignoring them would make `git add "."` a trivial bypass. | automatic-gate | overbroad-assertion | fixed+regression-case |
 | 2026-08-14 | First attempt at stripping heredoc bodies used `sed`, which applies its script per line, so `.*$` stopped at the first newline and left the entire heredoc body — the thing it existed to remove — intact. Silently did nothing for its only use case; caught by the test that had just been written for it. | automatic-gate | artifact-vs-effect | fixed |
 | 2026-08-17 | — | — | `wrong-invocation-path` | promoted -> verification.md catch **5a**, 3 rows (2 human, 1 agent-self), 2026-08-17 |
 | 2026-08-18 | — | — | `fail-open-guard` | promoted -> verification.md catch **2a**, 3 rows (0 human, 3 agent-self), 2026-08-18 |
+| 2026-08-19 | — | — | `overbroad-assertion` | promoted -> verification.md catch **3a**, 3 rows (0 human, 2 automatic-gate, 1 agent-self), 2026-08-19 |
 | 2026-08-19 | `check-imports.mjs` read the dependency manifest from `process.cwd()` while taking scan paths from argv, with nothing asserting the two agreed. Pointed at a project from outside it, the guard judged that project's imports against a DIFFERENT project's manifest — silently passing when they happened to overlap, and both loud-skip branches bypassed because files and an adapter were found, just the wrong adapter. Found by auditing the guards against a real UNC target instead of the usual fixture, where cwd and target always coincide. | agent-self | fail-open-guard | fixed+regression-case |
-| 2026-08-19 | The fix for the above over-corrected twice before landing: resolving the manifest only from the scan directory made `check-imports src` loud-skip a project that has one a level up, and then an unbounded upward walk escaped the project entirely and picked up a stray manifest in the Windows home. Both caught by the existing suite within seconds. | automatic-gate | overbroad-assertion | fixed |
-| 2026-08-19 | The runtime-faithful fixture's own CRLF assertion used `grep -q $'\r'`, which MSYS grep can never satisfy because it strips CR before matching. It reported the helper broken while `od` showed the bytes were correct — using a CR-stripping tool to look for CR. | agent-self | overbroad-assertion | fixed |
+| 2026-08-19 | The fix for the above over-corrected twice before landing: resolving the manifest only from the scan directory made `check-imports src` loud-skip a project that HAS one a level up, and then an unbounded upward walk escaped the project entirely and picked up a stray manifest in the Windows home. Both caught by the existing suite within seconds. Re-classified 2026-08-19 from `overbroad-assertion`: the first half is a guard declining to check what it should, which is this class, not an assertion failing on correct input. | automatic-gate | fail-open-guard | fixed |
 | 2026-08-19 | `make_project` in the bootstrap suite used `mkdir -p` on an absolute path — the same UNC defect as the code it tests, hidden by the same missing condition. Surfaced the moment a UNC-rooted fixture was introduced, on its first use. | automatic-gate | wrong-invocation-path | fixed |
 | 2026-08-18 | Asserted that a GitHub-sourced plugin install would exclude `node_modules` because it is gitignored, correcting an earlier finding on reasoning alone. Re-tested from outside the repo: still ships 15M including `node_modules`. The correction was wrong and the original finding stood. Retracted in the spec; the residual uncertainty (does a machine with no local checkout get the clean version?) is recorded as untested rather than resolved by argument. | agent-self | premise-drift | fixed |
 | 2026-08-17 | The catch-log skeleton generator searched for a literal newline-delimited marker to strip the source's header. This checkout is CRLF, so the match never fired and the generated skeleton silently kept the workflow repo's own framing, including text about issue numbers meaningless in a consuming project. Failed silently and looked plausible. An assertion on the OUTPUT now refuses to write a skeleton containing workflow-repo text. | agent-self | wrong-invocation-path | fixed+regression-case |
@@ -157,10 +155,10 @@ outcome text** (done above), so a full-corpus count is still "from the file
 alone, no external context" — it costs one extra line to read, not a
 git-history lookup.
 
-**Current corpus (updated 2026-08-19, after #26 slice 4 and #33).** 18 individually
-visible rows (agent-self: 9, human: 4, automatic-gate: 5) **plus** three collapsed
-promotion lines (2h+1a, 2h+1a, 0h+3a) = **agent-self: 14, human: 8,
-automatic-gate: 5** across 27 catches.
+**Current corpus (updated 2026-08-19, after the overbroad-assertion promotion).**
+15 individually visible rows (agent-self: 8, human: 4, automatic-gate: 3) **plus**
+four collapsed promotion lines (2h+1a, 2h+1a, 0h+3a, 0h+1a+2g) =
+**agent-self: 14, human: 8, automatic-gate: 5** across 27 catches.
 
 Read that number carefully, because it is not the #18 measurement and must not
 be quoted as one. It mixes three unlike things: a retrospective backfill of six
@@ -221,7 +219,7 @@ Counted per the rules above — promoted classes excluded, adjacent classes not 
 |---|---|---|
 | `artifact-vs-effect` | 3 collapsed + 4 new | **promoted** — no longer counts. Three fresh instances across two builds says the principle is documented but not yet absorbed. It is by far the most frequent class here, and every instance is the same shape: something *present* mistaken for something *working*. |
 | `fail-open-guard` | 3 collapsed | **promoted 2026-08-18** -> catch 2a. All three were agent-self catches, and none was found by a test — each needed someone to ask whether the guard had actually run. Two builds, two instances, both invisible until something probed for *effect* rather than *presence*. The likeliest next promotion. |
-| `overbroad-assertion` | **4** | **THRESHOLD PASSED — promotion candidate.** All four are the same shape: an assertion that cannot observe the property it claims to test (grep for CR with a CR-stripping grep; a resolver too narrow, then too wide). |
+| `overbroad-assertion` | 3 collapsed | **promoted 2026-08-19** -> catch 3a, the mirror of catch 3. A fourth row was re-classified out rather than counted: it was a guard declining to check, not an assertion failing on correct input. Promoting on a padded count would have described something that never happened. |
 | `vacuous-test` | 2 | 1 away |
 | `wrong-invocation-path` | 2 collapsed + 2 new | **promoted 2026-08-17** -> catch 5a. Third instance was a fixture-shape problem, not an invocation-method one — a genuinely new special case under the same parent, which is why the promotion had content rather than pointing at an existing line. |
 | `premise-drift` | 2 | 1 away |
@@ -235,5 +233,5 @@ produce its EFFECT, not merely to be present and exit non-zero"* — which
 does not state as a general requirement about guards that die before their own
 logic.
 
-*Archive: none yet — 18 individual rows + 3 collapsed promotion lines = 27 catches
+*Archive: none yet — 15 individual rows + 4 collapsed promotion lines = 27 catches
 accounted for, cap is 50 live rows.*

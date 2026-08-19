@@ -69,6 +69,35 @@ symptom.
    the absent ref — because that is where this class lives, never in the happy path.
 3. **Mutation-test any load-bearing guard** — stub it to always-pass; if the negative
    cases don't then fail, the tests are vacuous.
+
+   **3a. The mirror: an assertion must be able to OBSERVE the property it claims to
+   test.** *(Added 2026-08-19 on the third instance — promoted from the catch-log.)*
+   Catch 3 asks whether an assertion is too weak to fail. This asks whether it is
+   looking at the wrong thing entirely, and it shows up as a **false RED** — a
+   correct artifact reported broken:
+
+   - a "no hook invokes `jq`" check matched the word `jq` in the comments *explaining
+     the jq removal*, reporting four correctly-fixed hooks as still broken;
+   - a `git add -A` guard refused a commit whose *message documented* the probe used
+     to verify that guard — it inspected the raw command string, so writing about the
+     guard tripped it;
+   - a CRLF assertion used `grep -q $'\r'` under MSYS, whose `grep` strips CR before
+     matching — it can never observe the property it was written to check, and
+     reported bytes that `od` confirmed were correct as missing.
+
+   *Mechanical checks:* before trusting a RED, confirm the assertion can distinguish
+   the two cases — feed it a known-good input and a known-bad one and watch it
+   disagree. Never verify a property with a tool that normalises that property away
+   (CR with `grep`, whitespace with a formatter, file mode through `bash <script>`).
+   And when a guard inspects text, decide explicitly whether *data* inside that text
+   — a heredoc body, a quoted string, a commit message — is in scope; matching data
+   as though it were code is the most common source of this.
+
+   **Kept separate from catch 3 deliberately.** Both are "the assertion doesn't
+   measure the claim", but one hides defects and the other manufactures them, and no
+   single fix addresses both. A false RED is the cheaper failure — it interrupts
+   rather than deceives — but it trains people to bypass the guard, which converts it
+   into the expensive one.
 4. **Exec bit on new `*.sh`** — the agent file-creation path lands scripts `100644`;
    git ignores non-executable hooks. *(Mechanical check: now asserted in CI —
    `guards.yml`, "Executable-bit assertion", keyed on the shebang rather than the

@@ -23,6 +23,52 @@ Then install dev dependencies (the linter):
 npm ci
 ```
 
+## How this reaches a project — two mechanisms, on purpose
+
+The harness splits by what has to read the file (ADR-0007):
+
+| half | what | mechanism | currency |
+|---|---|---|---|
+| **portable / learning** | skills, `verification.md`, `code-review.md` | **marketplace plugin** | **next session** |
+| **mechanical wiring** | CI workflows, git hooks, lint config, test entrypoint, `package.json` scripts | `bootstrap-project.sh` + the emitted `setup-project.sh` | when you run it |
+| **project-owned data** | the catch-log's rows, `current-state.md` | created once, never distributed | n/a |
+
+The line is drawn mechanically, not by taste: **does something outside Claude Code
+have to read it?** GitHub Actions must find a workflow at `.github/workflows/`, git
+must find a hook where `core.hooksPath` points, npm must find scripts in
+`package.json` — so those are real files in the consuming repo. Everything only
+Claude Code reads can be a plugin, and a plugin has no second copy to drift.
+
+**One exception, and it is deliberate:** `engineering-standards.md` stays
+copy-propagated. It is hard-`@`-imported by path from each project's `CLAUDE.md`,
+and plugin delivery was tested and rejected — the version-independent placeholder
+does not resolve in memory imports, and the form that *does* work embeds the
+plugin version, so it would break on every release in every project.
+
+### Plugin updates apply on the NEXT session, never the current one
+
+Plugins load at session start, before any update can be applied — `claude plugin
+update` says "restart required to apply" in its own help. So a change pushed here
+reaches a project on its **next** session.
+
+This is better than the previous state, where a change arrived only when someone
+remembered to re-run a script. It is **not** live, and nothing in this repo should
+imply that it is.
+
+Auto-update is available but off by default here: `DISABLE_AUTOUPDATER` gates both
+the CLI self-updater and plugin auto-update through one switch. `FORCE_AUTOUPDATE_PLUGINS=1`
+re-enables plugin auto-update alone. When enabled, the refresh runs once per session
+start, in the background, after a 0–10 minute jitter, and **only in interactive
+sessions** — `-p` runs never auto-update.
+
+### Releasing a plugin change
+
+A change to shipped plugin content **with an unchanged version is a silent no-op**:
+consumers keep the cached copy and never receive it. Nothing errors and nothing
+warns. CI fails on this (`scripts/check-plugin-version.sh`), so bump `version` in
+`.claude-plugin/plugin.json` whenever you touch `.claude/skills/` or
+`docs/checklists/`.
+
 ## Testing and linting this repo
 
 This repo distributes the TDD gate and the guards, so it holds itself to the
