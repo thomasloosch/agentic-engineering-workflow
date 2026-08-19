@@ -21,25 +21,42 @@ source "$LIB"
 
 echo "▶ runtime-fixture"
 
-# 1. The fixture root is the production path shape, not /tmp.
-#    This is the whole point: /tmp is MSYS, production is UNC, and `mkdir -p`
-#    behaves differently on the two.
+# 1. The fixture root is the production path shape.
+#
+#    "Production" is ambiguous here and that ambiguity broke CI on first push:
+#    development runs on Windows/MSYS over a UNC checkout, where the hazards live,
+#    while CI runs on ubuntu-latest, where UNC paths do not exist and `mkdir -p`
+#    on an absolute path works fine. Assertions encoding the Windows hazards are
+#    FALSE on Linux — not a regression, just a runtime that cannot exhibit them.
+#
+#    So they SKIP LOUDLY there. Loudly, never silently: a silent skip would let CI
+#    report coverage it does not have, which is the fail-open this tier exists to
+#    prevent. These hazards are covered on the development machine and are
+#    structurally uncoverable in Linux CI — that is a real gap, stated rather than
+#    hidden.
 root="$(runtime_fixture_root)"
-case "$root" in
-  //*) pass "fixture root is UNC-rooted (production path shape)" ;;
-  *)   fail "fixture root is UNC-rooted (production path shape)" \
-            "got '$root' — a non-UNC root means every suite using this helper tests the wrong runtime" ;;
-esac
+if runtime_fixture_is_unc; then
+  SKIP_UNC=0
+  pass "fixture root is UNC-rooted (production path shape)"
+else
+  SKIP_UNC=1
+  echo "  ⚠ LOUD SKIP — this runtime is not UNC-based (root: $root)."
+  echo "    The UNC-specific assertions below did NOT run. They are covered on the"
+  echo "    Windows/MSYS development machine and cannot be exercised here."
+  echo "    This is a gap in THIS environment, not a pass."
+fi
 
 # 2. runtime_mktemp_d creates a usable directory under that root.
 d="$(runtime_mktemp_d)"
-if [ -n "$d" ] && [ -d "$d" ]; then
+if [ -z "$d" ] || [ ! -d "$d" ]; then
+  fail "runtime_mktemp_d creates a usable fixture directory" "no directory created (got '$d')"
+elif [ "$SKIP_UNC" -eq 0 ]; then
   case "$d" in
     //*) pass "runtime_mktemp_d creates a UNC-rooted directory" ;;
     *)   fail "runtime_mktemp_d creates a UNC-rooted directory" "got '$d'" ;;
   esac
 else
-  fail "runtime_mktemp_d creates a UNC-rooted directory" "no directory created (got '$d')"
+  pass "runtime_mktemp_d creates a usable fixture directory (non-UNC runtime)"
 fi
 
 # 3. THE FIXTURE REPRODUCES THE HAZARD. `mkdir -p` on an absolute UNC path fails
@@ -47,7 +64,7 @@ fi
 #    project while passing its whole suite. If this assertion ever goes green-side
 #    (i.e. mkdir starts succeeding), the environment changed and #33's premise
 #    needs re-checking; that is informative, not brittle.
-if [ -n "${d:-}" ] && [ -d "$d" ]; then
+if [ "$SKIP_UNC" -eq 0 ] && [ -n "${d:-}" ] && [ -d "$d" ]; then
   if mkdir -p "$d/hazard-probe" 2>/dev/null; then
     fail "fixture reproduces the UNC mkdir hazard" \
          "mkdir -p on an absolute UNC path SUCCEEDED — the fixture no longer reproduces the production condition, so it is not runtime-faithful. Re-check #33's premise."

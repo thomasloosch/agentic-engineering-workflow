@@ -352,11 +352,17 @@ rm -rf "$TESTDIR"
 #    shape every real target has. It is one case rather than a conversion of all
 #    thirteen: the tier belongs where the code touches path semantics, and adding
 #    it everywhere would be churn without adding coverage.
-UNCDIR="$(runtime_mktemp_d bootstrap-test)"
-if [ -z "$UNCDIR" ]; then
+if ! runtime_fixture_is_unc; then
+  echo "  ⚠ LOUD SKIP — non-UNC runtime (Linux CI); the UNC bootstrap case did NOT run."
+  echo "    Covered on the Windows/MSYS development machine only. A gap here, not a pass."
+  UNCDIR=""
+else
+  UNCDIR="$(runtime_mktemp_d bootstrap-test)"
+fi
+if [ -z "$UNCDIR" ] && runtime_fixture_is_unc; then
   fail "bootstrap works against a UNC-rooted project (production path shape)" \
        "could not build the runtime-faithful fixture — refusing to fall back to /tmp, which would test the wrong runtime"
-else
+elif [ -n "$UNCDIR" ]; then
   PROJECT=$(make_project "$UNCDIR" "unc-probe")
   if [ -z "$PROJECT" ]; then
     fail "bootstrap works against a UNC-rooted project (production path shape)" \

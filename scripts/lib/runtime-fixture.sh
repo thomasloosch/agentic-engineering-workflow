@@ -32,6 +32,27 @@
 #   d="$(runtime_mktemp_d)" || exit 1
 #   trap 'runtime_fixture_cleanup "$d"' EXIT
 
+# WHICH runtime is "production"? There are two, and that ambiguity broke CI on this
+# file's first push.
+#
+# Development happens on Windows/MSYS over a UNC checkout, where the hazards live.
+# CI runs on ubuntu-latest, where UNC paths do not exist and `mkdir -p` on an
+# absolute path works perfectly. Assertions that encode the Windows hazards are
+# therefore FALSE on Linux — not because the code regressed, but because that
+# runtime cannot exhibit them.
+#
+# So the tier detects its environment and the UNC-specific assertions SKIP LOUDLY
+# where the hazard cannot exist. Loudly, never silently: a silent skip would let CI
+# report coverage it does not have, which is the fail-open this whole tier exists
+# to prevent. The honest position is that these hazards are covered on the
+# development machine and structurally uncoverable in Linux CI.
+runtime_fixture_is_unc() {
+  case "$(runtime_fixture_root)" in
+    //*) return 0 ;;
+    *)   return 1 ;;
+  esac
+}
+
 # The production path shape. Derived from this repo's own location rather than
 # hardcoded, so the helper follows the checkout instead of asserting a machine.
 runtime_fixture_root() {
