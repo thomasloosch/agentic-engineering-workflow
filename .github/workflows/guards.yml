@@ -32,7 +32,17 @@ jobs:
       - name: Executable-bit assertion
         # Root cause this guards against: new scripts land at 100644, and git
         # SILENTLY IGNORES a non-executable hook — the pre-commit guard shipped
-        # inert until we caught it. Keyed on the SHEBANG, not the .sh suffix,
+        # inert until we caught it.
+        #
+        # Scans EVERY tracked file, not just hooks/ and scripts/. It was limited to
+        # those two directories and therefore never looked at .claude/, where two
+        # shebang files sat committed 100644 for months. They were found by the
+        # PROPAGATED pre-commit guard refusing a commit in a bootstrapped project —
+        # a guard this repo ships turning out to be stricter than this repo's own
+        # CI. A scope that quietly covers less than its name implies is the same
+        # silent-truncation class as #13.
+        #
+        # Keyed on the SHEBANG, not the .sh suffix,
         # because git hooks are conventionally extensionless (hooks/git/pre-commit,
         # and future pre-push/commit-msg) — a *.sh-only rule would miss exactly
         # the file that caused the bug. *.mjs is excluded: node-invoked, correctly 100644.
@@ -53,8 +63,8 @@ jobs:
               echo "FAIL: $path is $mode, expected 100755 (has a shebang; git will not execute it)"
               fail=1
             fi
-          done < <(git ls-files -s -- hooks scripts)
-          if [ "$fail" -eq 0 ]; then echo "All shebang scripts under hooks/ and scripts/ are executable."; fi
+          done < <(git ls-files -s)
+          if [ "$fail" -eq 0 ]; then echo "All tracked shebang files are executable."; fi
           exit $fail
 
       - name: Engineering-standards SSOT guard (#6)
