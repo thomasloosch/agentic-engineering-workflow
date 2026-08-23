@@ -95,6 +95,17 @@ enumerate_workflow_assets() {
   # to run. That is the same defect #13 fixed IN this repo, reproduced one level
   # out in every project this repo creates.
 
+  # Line-ending normalisation. NOT optional and NOT cosmetic: without it, a
+  # Windows/MINGW checkout reintroduces CRLF, which breaks the shebang of every
+  # propagated script when the project is used from WSL2 or deployed to Linux.
+  #
+  # This repo has had this file all along and did not ship it, so every
+  # bootstrapped project inherited a problem the workflow repo had already solved
+  # for itself. Found when the first real bootstrapped project showed its entire
+  # tree as modified from the WSL2 side.
+  f="$repo/.gitattributes"
+  [[ -f "$f" ]] && printf '%s\t%s\t\n' ".gitattributes" "$f"
+
   # Lint config + the test entry point. run-tests.mjs is placed under .claude/ci/
   # because nothing outside Claude Code needs to find it by convention — only
   # package.json refers to it, and that wiring is the owner-run setup step.

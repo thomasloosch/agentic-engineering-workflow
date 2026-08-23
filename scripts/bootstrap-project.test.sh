@@ -137,6 +137,10 @@ else
   run_bootstrap "$PROJECT" "Probe Three"
 
   missing=""
+  # .gitattributes: without it a Windows checkout reintroduces CRLF and breaks the
+  # shebang of every propagated script on Linux/WSL2. The workflow repo had this
+  # file and did not ship it; the first real bootstrapped project surfaced it.
+  [ -f "$PROJECT/.gitattributes" ] || missing="$missing .gitattributes"
   [ -f "$PROJECT/eslint.config.js" ] || missing="$missing eslint.config.js"
   [ -f "$PROJECT/.github/workflows/secret-scan.yml" ] || missing="$missing .github/workflows/secret-scan.yml"
 
