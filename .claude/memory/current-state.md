@@ -1,9 +1,98 @@
 # Current State — agentic-engineering-workflow
 
-The hand-maintained orientation / handoff doc for this repo — read it at session
-start to orient. There is no /start-session ritual anymore; THIS file is the
-orientation. Updated by hand as work lands.
-Last updated: 2026-08-13
+Read at session start to orient. There is no `/start-session` ritual; THIS file is
+the orientation.
+
+**This file has two halves, and the split is the point (#22).** The block below is
+**STATE**: one current value per fact, and it is *replaced* when it changes. The Log
+beneath it is **EVENTS**: timestamped, *appended*, never edited.
+
+Appending a state creates two answers to one question with nothing marking which is
+current — and the stale copy usually sits higher in the file, so it gets read first.
+That is exactly how this doc came to lead with "NEXT: strip Sovary to calendar-only"
+after that plan was retired. Structure carries this rule, not an instruction.
+
+**If you change what is true, edit the block below. If you record what happened,
+append to the Log.**
+
+Last updated: 2026-08-23
+
+---
+
+## Current State
+
+**What this repo is.** Meta-tooling for a solo agentic engineering workflow: shared
+skills, standards, guards, hooks, and a bootstrap that stamps the harness into
+project repos. Separate from product work; used to build it.
+
+### NEXT — #18, the semver acceptance harness
+
+The measurement the whole program exists to produce: of the defects found building a
+real thing through this workflow, what share did the harness catch versus Thomas.
+Baseline to beat: **six catches, six human, zero agent-self** (#7 session).
+
+- Probe repo: `~/projects/semver-probe`, bootstrapped and wired, catch-log seeded
+  with zero rows.
+- **Pre-build boundary: `f294741`** — 494 visible cases from `npm/node-semver`
+  @ `6e05b7637396ac66522cff8731f07cfe0ef49a29`, split by sha256 last-byte mod 2.
+  `corpus/held-out.json` is absent and must stay absent until validation.
+- Split verified **deterministic**: a second independent run produced byte-identical
+  output.
+- Flow: PRD -> spec -> Gate 1 -> build (`/tdd`) -> Gate 2. Every defect logged with
+  who-caught. **Thomas does not pre-empt** — a defect fixed before the harness has
+  its chance makes the number "Thomas + harness".
+
+### In progress (gate-1 approved)
+
+- **#22 memory reconcile** — this restructure is its first half. Checker second.
+- **#30 validation-strategy section** — spec template + a Standard 2 clause. No CI
+  guard, deliberately: a guard can only assert a heading exists.
+
+### Parked, with triggers
+
+- **#23 PRD/spec front-end** — W1 landed; the rest waits until the catch-log records
+  `premise-drift` or `unobservable-AC` at gate 1 **twice**. W2 has zero instances.
+- **#25 up-promotion**, **#24 judgment-class instrumentation** (gated on #18's tally),
+  **#9 / #11 / #14** (YAGNI, each with its own trigger).
+
+### Projects on this workflow
+
+- **jobs-radar** — harness installed; its new files are deliberately **left
+  untracked**, and it keeps its own `test`/`tdd`/`lint` scripts. `setup-project.sh`
+  correctly refused to overwrite them.
+- **semver-probe** — new, for #18.
+
+### Runtime facts that bite (verify against these before debugging)
+
+- **UNC and WSL2 disagree about file modes.** `chmod +x` from MINGW does not reach
+  the real ext4 file, and `ls -l` over UNC then reports the mode you asked for. The
+  **git index** mode is trustworthy from either side; the **working-tree** mode must
+  be set and read from WSL2 (`wsl.exe -e bash -c ...`).
+- `mkdir -p` on an absolute UNC path fails, even when the directory exists. Use
+  `ensure_dir` (`scripts/lib/portable-fs.sh`).
+- **Lifecycle hooks DO fire and block** here — ADR-0002 amended on measured evidence.
+  But a warn-only hook (exit 0 + stderr) is **mute**: its output never surfaces. If it
+  matters, make it block.
+- `node` is not on `PATH` in a non-interactive `wsl.exe bash -c`; use `bash -lc`.
+- Plugin is at **0.4.0**. A shipped change without a version bump is a silent no-op;
+  CI fails on it.
+
+### Instruments
+
+- **Catch-log** (`.claude/memory/catch-log.md`) — 30 catches, 4 promotions fired
+  (`artifact-vs-effect` -> catch 1, `wrong-invocation-path` -> 5a, `fail-open-guard`
+  -> 2a, `overbroad-assertion` -> 3a). Its rules are the SOURCE for the propagated
+  skeleton; edit there, then regenerate.
+- **verification.md** — the promoted principles. Reached by URL from Rule 2.
+
+---
+
+## Log — historical, append-only
+
+> **Everything below is history, not current state.** It records what happened and
+> why, and individual entries may have been superseded. Where the Log and the block
+> above disagree, **the block above wins**. Do not edit entries here to make them
+> current; add a new one, or fix the state block.
 
 ## What this repo is
 Meta-tooling for a solo agentic engineering workflow: shared skills, agents,
@@ -324,3 +413,4 @@ individual project repos. Separate from product work (Sovary); used to build it.
   /goal checklist (#10)"; /goal was struck — ADR-0006 — and the catch-list rehomed
   there.) Do NOT build tooling (e.g. a linter for tests touching .git) unless it
   recurs. YAGNI.
+
