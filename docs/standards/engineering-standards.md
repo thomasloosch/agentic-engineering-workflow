@@ -21,6 +21,21 @@ would not resolve.) **Per-issue acceptance verification** — "did this build sa
 issue X's stated criteria" — is covered by this rule plus human review, deliberately
 not by tooling; see ADR-0006 for the revisit trigger.
 
+**Every spec carries a "Validation strategy" section.** *Verification* is the
+project's own tests, lint, and guards — all authored by whoever built the thing, so
+none of it is independent. *Validation* is evidence from something the author did not
+write. Green on the first is not the second, and a spec must say which of the two each
+of its checks is. That section also states what its oracle can and cannot prove (with
+the "cannot" in as much detail as the "can", and "there is no independent oracle" as a
+permitted answer, said out loud); names for every acceptance criterion the instrument
+that reads it, since an AC no instrument can observe is *unsatisfiable* rather than
+merely unmet; and gives the mutation check that would show the verification is not
+vacuous. The prompts live in the spec template:
+https://github.com/thomasloosch/agentic-engineering-workflow/blob/main/docs/specs/TEMPLATE.md
+This is reviewed at the spec gate and **deliberately not enforced by CI** — a guard
+could only assert that the heading exists, and an empty section under a correct
+heading is precisely the spec the requirement exists to prevent.
+
 ### 3. Plan before non-trivial code
 Anything touching ≥3 files gets a written plan first — the `/to-prd` skill produces it (grilling → PRD → issues). Plans surface ambiguity cheaply; code surfaces it expensively.
 
