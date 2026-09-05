@@ -121,6 +121,35 @@ Baseline to beat: **six catches, six human, zero agent-self** (#7 session).
 > above disagree, **the block above wins**. Do not edit entries here to make them
 > current; add a new one, or fix the state block.
 
+### 2026-09-05 — the propagated test entrypoint had never run anywhere but here
+
+Starting #18 slice 1 meant running `npm test` in the probe, which discovered zero
+suites. Three defects in `run-tests.mjs`, all the same shape: it was written and
+tested only in the layout it was authored in. It resolved its project root as
+"my directory, then up one" (right at `scripts/`, wrong at `.claude/ci/`), searched
+only this repo's directory list, and hard-failed unless BOTH categories found
+suites — which no JS-only consumer can satisfy.
+
+The fourth was worse and had nothing to do with layout: `node --test` silently skips
+every file and exits 0 when `NODE_TEST_CONTEXT` is in its environment. The variable
+is inherited, so running the runner from inside any node:test process printed
+"OK: all N suite(s) passed" having executed nothing.
+
+Nine catches logged. Two classes crossed the rule-of-three in one session and both
+are left as candidates, because the rule says a human decides: `vacuous-test` and
+`silent-truncation`. The `vacuous-test` third instance is the sharp one — a
+regression test whose sed backreferences were mangled into a literal control
+character, so both sides of its comparison were identical and it could never fail.
+It passed with the defect reintroduced. **Only the mutation step found it**, which is
+true of all three rows in that class: none was caught by a gate.
+
+The catch-log itself needed repair. The row describing the 2026-08-19 raw-NUL defect
+contained a raw NUL, so git had classified the whole file as binary and every diff of
+the #18 measuring instrument was invisible.
+
+Slice 1 then went in as five red-green cycles: all 12 `valid-versions` cases green,
+mutation-checked. Slice 2 is blocked on a scope decision about `loose`.
+
 ## What this repo is
 Meta-tooling for a solo agentic engineering workflow: shared skills, agents,
 commands, hooks, and a bootstrap script that stamps the full hierarchy into
