@@ -632,6 +632,19 @@ done
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT" || exit 1
 
+# Every write in this script goes through `node -e`. Without this check, a missing
+# node makes each of them a silent no-op while the script still prints its check
+# marks and exits 0 — observed on a WSL shell that has no node at all, where it
+# reported "package.json scripts wired" over a package.json it had not created.
+# A wiring script that reports success without wiring anything is worse than one
+# that fails.
+if ! command -v node >/dev/null 2>&1; then
+  echo "✖ node is not on PATH — refusing to run." >&2
+  echo "  Every change this script makes is applied by node; without it this would" >&2
+  echo "  report success and change nothing." >&2
+  exit 127
+fi
+
 changes=()
 conflicts=()
 
@@ -643,6 +656,18 @@ want_scripts_json='{
   "tdd": "cross-env TDD_RECORD=1 node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./.claude/tdd/tdd-recorder.js --test-reporter-destination=stdout",
   "lint": "node node_modules/eslint/bin/eslint.js .",
   "observe": "node .claude/ci/observe.mjs"
+}'
+
+# The scripts above are not self-contained: `lint` runs eslint out of node_modules
+# and `tdd` shells through cross-env. Declaring them here is what makes them
+# durable. Printing "npm install --save-dev eslint cross-env" at the end was the
+# previous arrangement, and a project that skipped that line kept a lint script
+# that had never once run — the config was present, the script was present, and
+# no lint had ever happened. Declared dependencies survive a fresh clone; a
+# printed hint does not.
+want_dev_deps_json='{
+  "eslint": "^9.0.0",
+  "cross-env": "^7.0.3"
 }'
 
 if [ -f package.json ]; then
@@ -668,8 +693,20 @@ if [ -f package.json ]; then
   conf_list="$(printf '%s' "$plan" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).conflict.join(" ")))')"
   [ -n "$add_list" ]  && changes+=("package.json: add scripts -> $add_list")
   [ -n "$conf_list" ] && conflicts+=("package.json: these scripts already exist with different values -> $conf_list")
+
+  # A dependency already present at a DIFFERENT version is not a conflict: a
+  # differing script value means different behaviour, a differing eslint major
+  # usually does not, and refusing to bootstrap over it would be obstructive.
+  dep_add="$(node -e '
+    const fs=require("fs");
+    const want=JSON.parse(process.argv[1]);
+    let pkg={}; try{ pkg=JSON.parse(fs.readFileSync("package.json","utf8")); }catch(e){ process.exit(0); }
+    const have=Object.assign({},pkg.dependencies||{},pkg.devDependencies||{});
+    process.stdout.write(Object.keys(want).filter(k=>have[k]===undefined).join(" "));
+  ' "$want_dev_deps_json")"
+  [ -n "$dep_add" ] && changes+=("package.json: declare devDependencies -> $dep_add")
 else
-  changes+=("package.json: create, with test/tdd/lint/observe scripts")
+  changes+=("package.json: create, with test/tdd/lint/observe scripts and their devDependencies")
 fi
 
 # ── .claude/settings.json — SessionStart rotator hook ─────────────────────────
@@ -737,6 +774,21 @@ node -e '
 ' "$want_scripts_json"
 echo "  ✔ package.json scripts wired (existing values untouched)"
 
+dep_added="$(node -e '
+  const fs=require("fs");
+  const want=JSON.parse(process.argv[1]);
+  let pkg={}; if(fs.existsSync("package.json")) pkg=JSON.parse(fs.readFileSync("package.json","utf8"));
+  const have=Object.assign({},pkg.dependencies||{},pkg.devDependencies||{});
+  pkg.devDependencies=pkg.devDependencies||{};
+  let added=0;
+  for(const[k,v]of Object.entries(want)) if(have[k]===undefined){ pkg.devDependencies[k]=v; added++; }
+  if(added) fs.writeFileSync("package.json",JSON.stringify(pkg,null,2)+"\n");
+  process.stdout.write(String(added));
+' "$want_dev_deps_json")"
+if [ "$dep_added" != "0" ]; then
+  echo "  ✔ package.json devDependencies declared ($dep_added added; existing versions untouched)"
+fi
+
 # .claude/settings.json
 if [ -f .claude/hooks/rotate-tdd-session-log.sh ]; then
   node -e '
@@ -761,7 +813,7 @@ fi
 
 echo ""
 echo "Done. Next:"
-echo "  npm install --save-dev eslint cross-env   # if not already present"
+echo "  npm install                              # eslint and cross-env are now declared"
 echo "  npm run lint && npm test"
 SETUPEOF
 chmod +x "$SETUP_DST"

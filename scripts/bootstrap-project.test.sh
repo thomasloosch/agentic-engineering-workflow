@@ -392,6 +392,57 @@ $(printf '%s' "$out" | tail -5)"
   runtime_fixture_cleanup "$UNCDIR"
 fi
 
+# The emitted setup-project.sh must DECLARE what its scripts need, and must
+# refuse to run when it cannot apply anything.
+#
+# Both come from the same observed failure. The wired `lint` script runs eslint
+# out of node_modules and `tdd` shells through cross-env, but nothing declared
+# either — the script merely printed "npm install --save-dev eslint cross-env" at
+# the end. A project that skipped that line kept a lint script and an eslint
+# config that had never once run. And because every write goes through `node -e`,
+# running the script where node is absent printed its check marks and exited 0
+# having written nothing at all.
+WORK=$(mktemp -d)
+PROJ=$(make_project "$WORK" "setup-deps")
+if [ -z "$PROJ" ]; then
+  fail "emitted setup script declares its devDependencies" "could not build the fixture"
+else
+  bash "$BOOTSTRAP" "$PROJ" "Setup Deps" >/dev/null 2>&1
+  if [ ! -f "$PROJ/setup-project.sh" ]; then
+    fail "emitted setup script declares its devDependencies" "bootstrap emitted no setup-project.sh"
+  else
+    ( cd "$PROJ" && bash setup-project.sh -y ) >/dev/null 2>&1
+    got=$(node -e 'const d=require("fs").existsSync(process.argv[1])?JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")):{};const dd=d.devDependencies||{};process.stdout.write(["eslint","cross-env"].filter(k=>dd[k]).join(","))' "$PROJ/package.json" 2>/dev/null)
+    if [ "$got" != "eslint,cross-env" ]; then
+      fail "emitted setup script declares its devDependencies"            "package.json devDependencies did not gain eslint and cross-env (got: '$got')"
+    else
+      pass "emitted setup script declares its devDependencies"
+    fi
+
+    # Same script, node hidden. PATH is stripped of every directory that holds an
+    # executable node rather than blanked outright: the script needs dirname and
+    # bash itself before it ever reaches the node check, and an empty PATH tests
+    # the harness rather than the guard.
+    IFS=: read -r -a _pathdirs <<< "$PATH"
+    NODELESS_PATH=""
+    for _d in "${_pathdirs[@]}"; do
+      [ -x "$_d/node" ] || NODELESS_PATH="$NODELESS_PATH$_d:"
+    done
+    out=$(cd "$PROJ" && PATH="$NODELESS_PATH" bash setup-project.sh --dry-run 2>&1)
+    rc=$?
+    if [ "$rc" -eq 0 ]; then
+      fail "emitted setup script refuses to run without node"            "exited 0 with node absent — every write is a node -e, so it reported success having done nothing. Output:
+$out"
+    elif ! printf '%s' "$out" | grep -q 'node is not on PATH'; then
+      fail "emitted setup script refuses to run without node"            "non-zero exit but no explanation naming node. Output:
+$out"
+    else
+      pass "emitted setup script refuses to run without node"
+    fi
+  fi
+fi
+rm -rf "$WORK"
+
 echo ""
 if [ "$FAILED" -eq 0 ]; then echo "ALL GREEN"; else echo "SOME RED"; fi
 exit "$FAILED"
