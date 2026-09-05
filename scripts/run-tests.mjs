@@ -27,18 +27,41 @@ import { readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// The project root, resolved by walking UP to the nearest package.json rather than
+// assuming "my directory, then up one".
+//
+// That assumption held in this repo (scripts/ -> repo root) and broke everywhere
+// this file is PROPAGATED: bootstrap installs it at .claude/ci/, where up-one is
+// .claude/, so every search path resolved under .claude/ and a freshly bootstrapped
+// project discovered zero suites.
+function findProjectRoot(startDir) {
+  let dir = startDir;
+  for (;;) {
+    if (existsSync(path.join(dir, 'package.json'))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  // No manifest anywhere above: fall back to the invocation directory, which for
+  // `npm test` is the project root.
+  return process.cwd();
+}
+
+const ROOT = findProjectRoot(path.dirname(fileURLToPath(import.meta.url)));
 const shOnly = process.argv.includes('--sh-only');
 
 // Directories searched per category. Adding a suite means dropping a file in one
 // of these — no list to update here, which is the point.
-const NODE_DIRS = ['.claude/tdd', 'scripts'];
+// Covers this repo's layout AND a consuming project's. A propagated runner that
+// searched only this repo's directories would never find a consumer's own tests —
+// the second half of the same defect.
+const NODE_DIRS = ['.claude/tdd', 'scripts', 'test', 'tests', 'src', 'lib'];
 // `hooks` (the Claude Code LIFECYCLE hooks) was missing here while `hooks/git` and
 // `.claude/hooks` were present — so a test file dropped into hooks/ was silently
 // never discovered, and the four lifecycle hooks went un-suited entirely. Same
 // silent-truncation class as the hardcoded two-file command #13 fixed: discovery
 // that quietly covers less than it appears to.
-const SH_DIRS = ['.claude/hooks', 'hooks', 'hooks/git', 'scripts', 'scripts/lib'];
+const SH_DIRS = ['.claude/hooks', 'hooks', 'hooks/git', 'scripts', 'scripts/lib', 'test', 'tests'];
 
 const NODE_RE = /\.test\.(js|mjs)$/;
 const SH_RE = /\.test\.sh$/;
@@ -63,14 +86,38 @@ if (!shOnly) nodeSuites.forEach((f) => console.log(`  [node] ${f}`));
 shSuites.forEach((f) => console.log(`  [sh]   ${f}`));
 
 // Fail closed on empty discovery: silence here would read as success everywhere.
-if (!shOnly && nodeSuites.length === 0) {
-  console.error('ERROR: no node test suites discovered — discovery is broken, not the repo clean.');
+//
+// The bar is TOTAL discovery, not per-category. Requiring at least one suite in
+// EVERY category was right for this repo, which always has both, and made the
+// propagated runner unusable: a project with only JS tests and no shell guards
+// could never pass. That is this repo's layout mistaken for a universal rule.
+//
+// An empty CATEGORY is still called out, because a category that silently
+// disappears is the truncation risk the per-category check was reaching for. It is
+// a visible note rather than a failure: absence is legitimate elsewhere.
+const discoveredTotal = (shOnly ? 0 : nodeSuites.length) + shSuites.length;
+if (discoveredTotal === 0) {
+  console.error('ERROR: no test suites discovered at all — discovery is broken, not the repo clean.');
+  console.error(`       searched under: ${ROOT}`);
   process.exit(1);
 }
-if (shSuites.length === 0) {
-  console.error('ERROR: no shell test suites discovered — discovery is broken, not the repo clean.');
-  process.exit(1);
-}
+if (!shOnly && nodeSuites.length === 0) console.log('  NOTE: no node suites found (expected if this project has none).');
+if (shSuites.length === 0) console.log('  NOTE: no shell suites found (expected if this project has none).');
+
+// `node --test` SILENTLY SKIPS EVERY FILE and exits 0 when NODE_TEST_CONTEXT is
+// present in its environment — it reads that as a recursive run() inside a test
+// file and declines to run anything. Node prints a warning; the exit code says
+// success. Demonstrated: a file whose only statement is `process.exit(1)` exits 1
+// normally and 0 under NODE_TEST_CONTEXT=child.
+//
+// The variable is inherited, so ANY invocation of this runner from inside a
+// node:test process — a meta-test of the runner, a suite that shells out to
+// `npm test`, an editor's test integration — reported "OK: all N suite(s) passed"
+// having executed nothing. A false green produced by an environment variable is
+// the exact failure this runner exists to prevent, so it is scrubbed here rather
+// than worked around at each call site.
+const CHILD_ENV = { ...process.env };
+delete CHILD_ENV.NODE_TEST_CONTEXT;
 
 const failures = [];
 
@@ -78,7 +125,7 @@ if (!shOnly) {
   console.log('\n=== node --test ===');
   // Explicit file list, dynamically built: immune to the dot-directory discovery
   // rule AND to going stale.
-  const r = spawnSync(process.execPath, ['--test', ...nodeSuites], { cwd: ROOT, stdio: 'inherit' });
+  const r = spawnSync(process.execPath, ['--test', ...nodeSuites], { cwd: ROOT, stdio: 'inherit', env: CHILD_ENV });
   if (r.status !== 0) failures.push(`node --test (${nodeSuites.length} suite(s))`);
 }
 
@@ -86,7 +133,7 @@ for (const suite of shSuites) {
   console.log(`\n=== bash ${suite} ===`);
   // The shell suites are the guards' own tests; they need bash, which is present
   // on Linux CI and via Git Bash in the dev runtime.
-  const r = spawnSync('bash', [suite], { cwd: ROOT, stdio: 'inherit' });
+  const r = spawnSync('bash', [suite], { cwd: ROOT, stdio: 'inherit', env: CHILD_ENV });
   if (r.status !== 0) failures.push(`bash ${suite}`);
 }
 
