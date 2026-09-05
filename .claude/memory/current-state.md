@@ -52,9 +52,12 @@ Baseline to beat: **six catches, six human, zero agent-self** (#7 session).
   Three ways out — support `loose`, exclude those cases (which changes the 164 and
   so changes AC1 and the held-out filter), or treat them as strict and see which
   still hold. Logged as `premise-drift` in the probe's catch-log.
-- **AC2 is currently unsatisfiable in the probe.** It declares `npm run lint` and
-  ships `eslint.config.js`, but nothing declares eslint and there is no
-  `node_modules`, so lint has never run there. Bootstrap gap, not a probe gap.
+- **AC2 / eslint — bootstrap side FIXED 2026-09-05.** The emitted
+  `setup-project.sh` now DECLARES eslint and cross-env in `devDependencies` instead
+  of printing an install hint at the end, and refuses to run at all when node is
+  absent (every write it makes is a `node -e`, so without that it printed its check
+  marks and exited 0 having written nothing). The probe still needs its own
+  `npm install`.
 
 ### In progress (gate-1 approved)
 
@@ -90,6 +93,9 @@ Baseline to beat: **six catches, six human, zero agent-self** (#7 session).
 - `node` is not on `PATH` in a non-interactive `wsl.exe bash -c`; use `bash -lc`.
   WSL has no native node here at all — `npm` resolves through Windows interop, so a
   path printed from "inside WSL" can come back as a `\\wsl.localhost\...` UNC path.
+- **Exit codes from `wsl.exe ... bash -lc '...; echo $?'` are not trustworthy** —
+  the status reported belongs to the wrong process. Write a script file and run
+  `wsl.exe -- bash /path/to/it` when the exit code matters.
 - **The GitHub SSH key is Windows-side only.** `git push` from WSL fails
   `Permission denied (publickey)`; push from Git Bash. Same repo, same remote.
 - **Python's default text-mode write emits CRLF on Windows.** Edits made that way
@@ -106,10 +112,11 @@ Baseline to beat: **six catches, six human, zero agent-self** (#7 session).
   (`artifact-vs-effect` -> catch 1, `wrong-invocation-path` -> 5a, `fail-open-guard`
   -> 2a, `overbroad-assertion` -> 3a). Its rules are the SOURCE for the propagated
   skeleton; edit there, then regenerate.
-  **Two classes crossed the rule-of-three on 2026-09-05 and neither is promoted:
-  `vacuous-test` (3) and `silent-truncation` (3).** Both await a human decision on
-  where the principle goes. Standings are now recomputed from the table rather than
-  by extending the previous hand-kept tally.
+  **6 promotions now**: `vacuous-test` -> catch **3b** (an assertion is not trusted
+  until it has been observed to fail) and `silent-truncation` -> catch **8** (an
+  enumeration must be derived, or fail loudly when it covers nothing), both promoted
+  2026-09-05. Standings are recomputed from the table rather than by extending the
+  previous hand-kept tally.
 - **verification.md** — the promoted principles. Reached by URL from Rule 2.
 
 ---

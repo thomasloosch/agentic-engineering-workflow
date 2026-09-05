@@ -98,6 +98,30 @@ symptom.
    single fix addresses both. A false RED is the cheaper failure — it interrupts
    rather than deceives — but it trains people to bypass the guard, which converts it
    into the expensive one.
+   **3b. An assertion is not trusted until it has been observed to fail.** *(Added
+   2026-09-05 on the third instance — promoted from the catch-log.)* Catch 3 asks
+   this of load-bearing guards. The recurring shape is broader: the vacuous thing
+   was the *newly written test itself*, and in all three cases the suite was green
+   and stayed green with the defect put back:
+
+   - a guard's own negative cases passed with the guard stubbed to always-pass;
+   - #16's re-run regression stayed green with the prior-manifest load disabled —
+     every file fell back to "untracked but identical to the repo" and was adopted,
+     so the entry count survived and the test only ever checked the count;
+   - a manifest-format assertion compared two values extracted by sed backreferences
+     that a tooling layer had collapsed into the same literal control character, so
+     both sides were equal by construction and it could never fail.
+
+   **None of the three was found by a gate.** Each needed someone to deliberately
+   break the thing and re-run, which is why this is a checklist entry rather than a
+   CI step: nothing can decide automatically what "break it" means for a given
+   assertion.
+
+   *Mechanical check:* before committing a new assertion, make the code wrong in the
+   way that assertion exists to catch, watch it go RED, and **read the failure
+   message** to confirm it failed for that reason rather than another one. A test
+   that fails because the fixture could not be built is not evidence of anything.
+
 4. **Exec bit on new `*.sh`** — the agent file-creation path lands scripts `100644`;
    git ignores non-executable hooks. *(Mechanical check: now asserted in CI —
    `guards.yml`, "Executable-bit assertion", keyed on the shebang rather than the
@@ -152,6 +176,31 @@ symptom.
    all three for free.
 
 ---
+
+8. **An enumeration must be derived, or fail loudly when it covers nothing** —
+   *(Added 2026-09-05 on the third instance — promoted from the catch-log.)* Three
+   times a list that decided *what gets checked* quietly covered less than it
+   appeared to, and nothing failed:
+
+   - a hardcoded two-file test command silently stopped running a third file added
+     later — 25 of 30 tests, reported as a pass (#13);
+   - the shell-suite directory list omitted `hooks/`, so the four lifecycle hooks
+     went un-suited entirely while the runner still printed a confident discovery
+     list;
+   - that same runner's directory list named only this repo's layout, so every
+     bootstrapped project searched directories it does not have and found nothing.
+
+   The shape is always the same: **the enumeration is written down somewhere other
+   than where the things are**, so the two drift and only the enumeration is
+   consulted.
+
+   *Mechanical checks:* derive the list from the filesystem rather than maintaining
+   it by hand; print what was discovered on every run, so a shrinking list is
+   visible rather than inferred; and make discovering NOTHING a hard failure — a
+   runner that quietly runs zero tests is indistinguishable from one where
+   everything passes. The third case is the instructive one: the loud-on-empty rule
+   is the only reason it surfaced at all, and even then only in the project where
+   the list happened to be wrong.
 
 ## Maturity signal
 

@@ -193,10 +193,29 @@ harness still has a 0-for-2 record on the defects that actually cost weeks.
 | 2026-09-05 | `sync-project-assets.sh` wrote a v3 manifest header while its success line reported "canonical v2 header" — leftover text from the v2 migration. Nothing failed, which is the problem: that line is the only thing an operator reads to confirm what landed, and it stated the wrong format about the file whose entire job is provenance. | agent-self | artifact-vs-effect | fixed — one `MANIFEST_FORMAT` constant feeds both; test asserts the reported version equals the written one |
 | 2026-09-05 | Python's default text-mode write on Windows emits CRLF, so edits made through it shipped CRLF into a repo whose scripts run under WSL bash. 39 worktree files were CRLF; `sync-project-assets.sh` died on a bare CR before reaching its own logic. The index was LF throughout, so nothing in git showed it. | automatic-gate | artifact-vs-effect | fixed — worktree renormalised to LF; writes now specify LF explicitly |
 | 2026-09-05 | The catch-log row describing the 2026-08-19 raw-NUL defect contained a raw NUL byte itself, so git classified the entire log as binary and hid every diff it will ever have. The instrument for #18's measurement was unreviewable, and the entry warning about the mistake was the thing making it. | agent-self | artifact-vs-effect | fixed — byte replaced with the escape text it meant to name; file is text again |
-| 2026-09-05 | A worktree-renormalisation script excluded a locally-modified file from its delete step but then ran `git checkout -- .`, which reverted that file anyway. Uncommitted work was lost and had to be reapplied. The exclusion was reasoned about for one command and not for the next. | agent-self | destructive-scope | reapplied; recorded rather than quietly redone |
+| 2026-09-05 | A worktree-renormalisation script excluded a locally-modified file from its delete step but then ran `git checkout -- .`, which reverted that file anyway. Uncommitted work was lost and had to be reapplied. The exclusion was reasoned about for one command and not for the next. | agent-self | destructive-scope | reapplied; recorded rather than quietly redone || 2026-09-05 | — | — | `vacuous-test` | promoted -> verification.md catch **3b**, 3 rows (1 human, 2 agent-self), 2026-09-05. None found by a gate; each needed a deliberate mutation step. |
+| 2026-09-05 | — | — | `silent-truncation` | promoted -> verification.md catch **8**, 3 rows (1 human, 2 agent-self), 2026-09-05 |
+
 ---
 
 ## Promotions fired
+
+**2026-09-05 — `vacuous-test` and `silent-truncation` both reached 3 rows**, in the
+same session, and were promoted together after a human decision.
+
+`vacuous-test` became **catch 3b**: an assertion is not trusted until it has been
+observed to fail. Catch 3 already said this of load-bearing guards; the three rows
+say it of newly written assertions generally. The detail that decided the wording:
+**none of the three was found by a gate.** Each needed someone to break the thing
+deliberately and re-run — so the entry is a checklist item and prescribes reading
+the failure message, because the third instance did fail once for an unrelated
+reason (a fixture that could not be built) and that failure proved nothing.
+
+`silent-truncation` became **catch 8**: an enumeration must be derived, or fail
+loudly when it covers nothing. All three rows are lists that decided what gets
+checked and quietly covered less than they appeared to. The loud-on-empty rule that
+#13 introduced is what made the third one visible at all.
+
 
 **2026-08-13 — `artifact-vs-effect` reached 3 rows** in this project's log: the
 two 2026-07-22 catches (secret guard committed 100644; confirming it fired
@@ -234,8 +253,8 @@ threshold; their row counts are kept for visibility.
 
 | class | individual rows | toward promotion |
 |---|---|---|
-| `vacuous-test` | 3 | **THRESHOLD REACHED 2026-09-05** — promotion candidate, awaiting a human decision |
-| `silent-truncation` | 3 | **THRESHOLD REACHED 2026-09-05** — promotion candidate, awaiting a human decision |
+| `vacuous-test` | 3 | promoted 2026-09-05 -> catch 3b |
+| `silent-truncation` | 3 | promoted 2026-09-05 -> catch 8 |
 | `premise-drift` | 2 | 1 away |
 | `unsafe-test-isolation` | 1 | 2 away |
 | `destructive-scope` | 1 | 2 away (class added 2026-09-05) |
@@ -244,9 +263,8 @@ threshold; their row counts are kept for visibility.
 | `fail-open-guard` | 3 | promoted 2026-08-18 -> catch 2a |
 | `overbroad-assertion` | 1 | promoted 2026-08-19 -> catch 3a |
 
-**Two classes crossed the threshold in the same session and neither is promoted
-here.** The rule says a human decides where a candidate goes, so both are stated
-and left open:
+**Two classes crossed the threshold in the same session and both were promoted**
+(decision taken 2026-09-05). What each says:
 
 - **`vacuous-test` (3).** All three are assertions that stayed green with the
   thing they protect removed, and — the part worth noticing — **none of the three
@@ -266,5 +284,5 @@ workflow repo's own build, where the agent writing the code is also the one
 reading the output, so `agent-self` is structurally favoured. #18's held-out probe
 is the measurement; this is context for it.
 
-*Archive: none yet — 27 individual rows + 4 collapsed promotion lines = 31 rows,
+*Archive: none yet — 27 individual rows + 6 collapsed promotion lines = 33 rows,
 cap is 50 live rows.*
