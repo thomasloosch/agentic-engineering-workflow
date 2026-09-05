@@ -15,7 +15,7 @@ after that plan was retired. Structure carries this rule, not an instruction.
 **If you change what is true, edit the block below. If you record what happened,
 append to the Log.**
 
-Last updated: 2026-08-23
+Last updated: 2026-09-05
 
 ---
 
