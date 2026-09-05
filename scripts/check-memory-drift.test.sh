@@ -424,23 +424,21 @@ else
   write_state "$REPO" '### NEXT — #18
 
 Cites ADR-0002.'
-  GH_REAL="$(command -v gh 2>/dev/null)"
-  if [ -z "$GH_REAL" ]; then
-    fail "gh absent -> hard error" "gh is not installed here, so this case cannot be constructed"
+  # Point GH_BIN at a name that cannot exist rather than carving gh out of PATH.
+  # The earlier version removed every PATH entry containing gh, which on a Linux
+  # runner also removes bash and coreutils — the case could not be built, and the
+  # test failed loudly rather than claiming a pass it had not exercised. GH_BIN
+  # defaults to `gh`, so this still drives the production lookup.
+  ABSENT_GH="gh-absent-fixture-$$"
+  if command -v "$ABSENT_GH" >/dev/null 2>&1; then
+    fail "gh absent -> hard error" "the stand-in name $ABSENT_GH unexpectedly exists; the case was not exercised"
   else
-    GH_DIR="$(dirname "$GH_REAL")"
-    NOGH_PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -vFx "$GH_DIR" | paste -sd: -)"
-    # Never let this case pass because the fixture failed to remove gh.
-    if PATH="$NOGH_PATH" command -v gh >/dev/null 2>&1; then
-      fail "gh absent -> hard error" "could not build a PATH without gh; the case was not exercised"
+    out=$( ( cd "$REPO" || exit 1; GH_BIN="$ABSENT_GH" ./scripts/check-memory-drift.sh ) 2>&1 ); rc=$?
+    if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'is not on PATH'; then
+      pass "gh absent -> hard error"
     else
-      out=$( ( cd "$REPO" || exit 1; PATH="$NOGH_PATH" ./scripts/check-memory-drift.sh ) 2>&1 ); rc=$?
-      if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'gh is not on PATH'; then
-        pass "gh absent -> hard error"
-      else
-        fail "gh absent -> hard error" "rc=$rc, output:
+      fail "gh absent -> hard error" "rc=$rc, output:
 $out"
-      fi
     fi
   fi
 fi

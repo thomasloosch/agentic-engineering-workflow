@@ -53,7 +53,14 @@ command -v git >/dev/null 2>&1 || err "git is not on PATH."
 # gh is required unconditionally rather than on demand. A checker that quietly
 # skips its issue-state half when the tool is missing reports "clean" while having
 # checked a fraction of what it claims — the exact fail-open shape of catch 2a.
-command -v gh >/dev/null 2>&1 || err "gh is not on PATH — issue state cannot be read."
+# The gh binary is named through GH_BIN so the "gh is absent" precondition can be
+# exercised without surgery on PATH. On a Linux CI runner gh shares a directory
+# with the shell's own tools, so removing every PATH entry that contains gh also
+# removes bash and coreutils — the test could not construct the case and, rightly,
+# refused to report a pass it had not exercised. Production still resolves plain
+# `gh`, so this is the real invocation path and not a test-only branch.
+GH_BIN="${GH_BIN:-gh}"
+command -v "$GH_BIN" >/dev/null 2>&1 || err "$GH_BIN is not on PATH — issue state cannot be read."
 
 [ -f "$FILE" ] || err "$FILE does not exist."
 grep -q '^## Current State' "$FILE" || err "$FILE has no '## Current State' heading — the STATE block cannot be located."
@@ -91,7 +98,7 @@ note() { printf '  line %s: %s\n      %s\n' "$1" "$2" "$3" >> "$FINDINGS"; }
 # subshell and the caller would carry on with an empty state.
 gh_state() {  # gh_state <issue-number>
   local n="$1" out
-  if ! out="$(gh issue view "$n" --json state --jq .state 2>&1)"; then
+  if ! out="$("$GH_BIN" issue view "$n" --json state --jq .state 2>&1)"; then
     printf 'ERR:%s' "$(printf '%s' "$out" | tr '\n' ' ')"
     return 0
   fi

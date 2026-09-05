@@ -112,6 +112,7 @@ the test is whether the same fix addresses both — see `vacuous-test` vs
 
 | date | what | who-caught | error-class | outcome |
 |---|---|---|---|---|
+| 2026-09-05 | The drift checker's "gh absent" test built its fixture by removing every PATH entry containing gh. That works on the dev machine, where gh has its own directory, and not on a Linux runner, where gh shares one with bash and coreutils — so the fixture removed the shell's own tools and the case could not be constructed. CI went red. | automatic-gate | wrong-invocation-path | fixed with a GH_BIN seam that defaults to `gh`, so production still resolves the same binary and the test names one that cannot exist. Worth noting the test did the RIGHT thing: it refused to report a pass for a case it had not exercised, which is why this surfaced as a red rather than as a silent hole |
 | 2026-07-22 | The guard's own tests still passed with the guard stubbed to always-pass — the negative cases were vacuous. | human | vacuous-test | fixed |
 | 2026-07-17 | A negative test mutated the live git index when a `cd` failed silently under `set -e` (test ran against live state, not an isolated `mktemp -d` fixture). | human | unsafe-test-isolation | fixed |
 | 2026-08-13 | #16's own re-run regression test stayed green when the prior-manifest-load code was disabled — every file fell back to "untracked but identical to the repo" and got adopted, so the entry *count* survived by a different path. The test proved less than it looked like it did. | agent-self | vacuous-test | fixed+regression-case |
