@@ -41,6 +41,7 @@ source at the centre; edit them there, not here.
 | `artifact-vs-effect` | the committed/reported state looks right; the running/actual effect is not what it claims | verification.md catch 1; catch 7's third bullet |
 | `unsafe-test-isolation` | a test operates on live/shared state instead of an isolated fixture, risking corruption on failure | verification.md catch 6 — **added here**, no seed-table entry existed for it |
 | `overbroad-assertion` | an assertion fails on correct code — a false RED. The mirror of `vacuous-test`, kept **separate on purpose**: both are "the assertion doesn't measure the claim", but one hides defects and the other manufactures them, and lumping them would let three unrelated mistakes trip a promotion that describes neither | added 2026-08-14 (the jq-in-comments assertion) |
+| `destructive-scope` | a repair or cleanup command's blast radius is wider than the set it was reasoned about, so it also hits files that were deliberately excluded a step earlier | added 2026-09-05 (`git checkout -- .` after an exclusion list) |
 
 ## Promotion rule
 

@@ -49,6 +49,7 @@ vocabulary and threshold, silently. **Edit the rules here, then regenerate.**
 | `artifact-vs-effect` | the committed/reported state looks right; the running/actual effect is not what it claims | verification.md catch 1; catch 7's third bullet |
 | `unsafe-test-isolation` | a test operates on live/shared state instead of an isolated fixture, risking corruption on failure | verification.md catch 6 — **added here**, no seed-table entry existed for it |
 | `overbroad-assertion` | an assertion fails on correct code — a false RED. The mirror of `vacuous-test`, kept **separate on purpose**: both are "the assertion doesn't measure the claim", but one hides defects and the other manufactures them, and lumping them would let three unrelated mistakes trip a promotion that describes neither | added 2026-08-14 (the jq-in-comments assertion) |
+| `destructive-scope` | a repair or cleanup command's blast radius is wider than the set it was reasoned about, so it also hits files that were deliberately excluded a step earlier | added 2026-09-05 (`git checkout -- .` after an exclusion list) |
 
 ## Promotion rule
 
@@ -122,7 +123,7 @@ the test is whether the same fix addresses both — see `vacuous-test` vs
 | 2026-08-18 | — | — | `fail-open-guard` | promoted -> verification.md catch **2a**, 3 rows (0 human, 3 agent-self), 2026-08-18 |
 | 2026-08-19 | — | — | `overbroad-assertion` | promoted -> verification.md catch **3a**, 3 rows (0 human, 2 automatic-gate, 1 agent-self), 2026-08-19 |
 | 2026-08-19 | Two shebang files sat committed 100644 under `.claude/` for months (`tdd-verdict.js`, `rotate-tdd-session-log.test.sh`) — inert if git ever executed them. The CI exec-bit assertion never looked, because its scope was hooks and scripts only. Found by the PROPAGATED pre-commit guard refusing the first commit in a freshly bootstrapped project: a guard this repo ships turned out to be stricter than this repo's own CI. Assertion widened to all tracked files. | automatic-gate | silent-truncation | fixed+regression-case |
-| 2026-08-19 | `split-corpus.sh` was written with a raw NUL byte inside a JS string literal instead of the ` ` escape. Semantically correct, but it made the whole script read as binary to grep, sed and editors — three separate attempts to patch the line silently failed to match before `od` showed why. Nearly shipped an unreviewable script. | agent-self | artifact-vs-effect | fixed |
+| 2026-08-19 | `split-corpus.sh` was written with a raw NUL byte inside a JS string literal instead of the `\u0000` escape. Semantically correct, but it made the whole script read as binary to grep, sed and editors — three separate attempts to patch the line silently failed to match before `od` showed why. Nearly shipped an unreviewable script. | agent-self | artifact-vs-effect | fixed |
 | 2026-08-19 | Posted a GitHub comment with an inline bash body containing backticks; the shell ran the backticked text as command substitution and silently ate a fragment, leaving a mangled sentence on the issue. A recorded lesson already says to use --body-file for exactly this and it was not followed. Caught by reading the posted comment back rather than trusting the exit code. | agent-self | artifact-vs-effect | fixed |
 | 2026-08-19 | `check-imports.mjs` read the dependency manifest from `process.cwd()` while taking scan paths from argv, with nothing asserting the two agreed. Pointed at a project from outside it, the guard judged that project's imports against a DIFFERENT project's manifest — silently passing when they happened to overlap, and both loud-skip branches bypassed because files and an adapter were found, just the wrong adapter. Found by auditing the guards against a real UNC target instead of the usual fixture, where cwd and target always coincide. | agent-self | fail-open-guard | fixed+regression-case |
 | 2026-08-19 | The fix for the above over-corrected twice before landing: resolving the manifest only from the scan directory made `check-imports src` loud-skip a project that HAS one a level up, and then an unbounded upward walk escaped the project entirely and picked up a stray manifest in the Windows home. Both caught by the existing suite within seconds. Re-classified 2026-08-19 from `overbroad-assertion`: the first half is a guard declining to check what it should, which is this class, not an assertion failing on correct input. | automatic-gate | fail-open-guard | fixed |
@@ -184,7 +185,15 @@ gates catching things — and it is worth being precise about what it does and
 doesn't show: these gates caught defects in *the thing being built in that same
 turn*, which is TDD working, not the standing harness working. The standing
 harness still has a 0-for-2 record on the defects that actually cost weeks.
-
+| 2026-09-05 | The propagated test entrypoint resolved its project root as "my directory, then up one" — right in this repo (`scripts/` to the root) and wrong in every consumer, where bootstrap installs it at `.claude/ci/` so up-one is `.claude/`. A freshly bootstrapped project's `npm test` searched under `.claude/` and discovered nothing. Every existing test exercised the runner only from the authoring layout. | automatic-gate | wrong-invocation-path | fixed — root now found by walking up to `package.json`; meta-tests added that build the CONSUMER layout |
+| 2026-09-05 | Same file, second half: the discovery directory list enumerated only this repo's own layout, so a consumer's `test/` was never scanned even once the root resolved correctly. | agent-self | silent-truncation | fixed — consumer test locations added to both lists |
+| 2026-09-05 | The runner hard-failed when EITHER category (node, shell) discovered zero suites. Correct for this repo, which always has both; it made the propagated runner unpassable for any project with JS tests and no shell guards — a false RED on correct code. This repo's layout mistaken for a universal rule. | agent-self | overbroad-assertion | fixed — the bar is now TOTAL discovery; an empty category prints a visible note |
+| 2026-09-05 | `node --test` silently skips every file and exits 0 when `NODE_TEST_CONTEXT` is present in its environment. The variable is inherited, so running the runner from inside any node:test process reported "OK: all N suite(s) passed" having executed nothing. Demonstrated: a file whose only statement is a non-zero exit exits 1 normally and 0 with the variable set. | automatic-gate | fail-open-guard | fixed — the variable is scrubbed from the child env; regression test asserts a failing suite still fails |
+| 2026-09-05 | The regression test written for the manifest-format drift was VACUOUS: a tooling layer collapsed the double backslashes in its sed backreferences, so both sides of the comparison extracted the same literal control character and the assertion could never fail. The suite was green and stayed green with the defect reintroduced. | agent-self | vacuous-test | fixed — extraction rewritten with grep/awk and no backslashes; mutation check now goes RED as it should |
+| 2026-09-05 | `sync-project-assets.sh` wrote a v3 manifest header while its success line reported "canonical v2 header" — leftover text from the v2 migration. Nothing failed, which is the problem: that line is the only thing an operator reads to confirm what landed, and it stated the wrong format about the file whose entire job is provenance. | agent-self | artifact-vs-effect | fixed — one `MANIFEST_FORMAT` constant feeds both; test asserts the reported version equals the written one |
+| 2026-09-05 | Python's default text-mode write on Windows emits CRLF, so edits made through it shipped CRLF into a repo whose scripts run under WSL bash. 39 worktree files were CRLF; `sync-project-assets.sh` died on a bare CR before reaching its own logic. The index was LF throughout, so nothing in git showed it. | automatic-gate | artifact-vs-effect | fixed — worktree renormalised to LF; writes now specify LF explicitly |
+| 2026-09-05 | The catch-log row describing the 2026-08-19 raw-NUL defect contained a raw NUL byte itself, so git classified the entire log as binary and hid every diff it will ever have. The instrument for #18's measurement was unreviewable, and the entry warning about the mistake was the thing making it. | agent-self | artifact-vs-effect | fixed — byte replaced with the escape text it meant to name; file is text again |
+| 2026-09-05 | A worktree-renormalisation script excluded a locally-modified file from its delete step but then ran `git checkout -- .`, which reverted that file anyway. Uncommitted work was lost and had to be reapplied. The exclusion was reasoned about for one command and not for the next. | agent-self | destructive-scope | reapplied; recorded rather than quietly redone |
 ---
 
 ## Promotions fired
@@ -214,27 +223,48 @@ them.
 
 ---
 
-## Class standings (recount after the 2026-08-14 hook-revival build)
+## Class standings (recounted mechanically 2026-09-05)
 
-Counted per the rules above — promoted classes excluded, adjacent classes not merged.
+Counted from the Log table itself rather than by extending the previous tally:
+27 individual rows, plus 4 collapsed promotion-summary rows (the ones whose class
+is written in backticks and whose what/who cells are an em-dash). Those 4 are
+summaries of promotions already fired and are excluded from the counts below, so
+nothing is double-counted. Promoted classes no longer accumulate toward a
+threshold; their row counts are kept for visibility.
 
-| class | rows | toward promotion |
+| class | individual rows | toward promotion |
 |---|---|---|
-| `artifact-vs-effect` | 3 collapsed + 4 new | **promoted** — no longer counts. Three fresh instances across two builds says the principle is documented but not yet absorbed. It is by far the most frequent class here, and every instance is the same shape: something *present* mistaken for something *working*. |
-| `fail-open-guard` | 3 collapsed | **promoted 2026-08-18** -> catch 2a. All three were agent-self catches, and none was found by a test — each needed someone to ask whether the guard had actually run. Two builds, two instances, both invisible until something probed for *effect* rather than *presence*. The likeliest next promotion. |
-| `overbroad-assertion` | 3 collapsed | **promoted 2026-08-19** -> catch 3a, the mirror of catch 3. A fourth row was re-classified out rather than counted: it was a guard declining to check, not an assertion failing on correct input. Promoting on a padded count would have described something that never happened. |
-| `vacuous-test` | 2 | 1 away |
-| `wrong-invocation-path` | 2 collapsed + 2 new | **promoted 2026-08-17** -> catch 5a. Third instance was a fixture-shape problem, not an invocation-method one — a genuinely new special case under the same parent, which is why the promotion had content rather than pointing at an existing line. |
+| `vacuous-test` | 3 | **THRESHOLD REACHED 2026-09-05** — promotion candidate, awaiting a human decision |
+| `silent-truncation` | 3 | **THRESHOLD REACHED 2026-09-05** — promotion candidate, awaiting a human decision |
 | `premise-drift` | 2 | 1 away |
-| `silent-truncation` | 2 | 1 away |
 | `unsafe-test-isolation` | 1 | 2 away |
+| `destructive-scope` | 1 | 2 away (class added 2026-09-05) |
+| `artifact-vs-effect` | 10 | promoted 2026-08-13 -> catch 1 — still by far the most common shape |
+| `wrong-invocation-path` | 3 | promoted 2026-08-17 -> catch 5a |
+| `fail-open-guard` | 3 | promoted 2026-08-18 -> catch 2a |
+| `overbroad-assertion` | 1 | promoted 2026-08-19 -> catch 3a |
 
-`fail-open-guard` at 2-of-3 is the one to watch: if it lands a third time, the
-promotion target is a principle roughly of the form *"a guard must be verified to
-produce its EFFECT, not merely to be present and exit non-zero"* — which
-`verification.md` catch 2 gestures at ("confirm the guard actually fired") but
-does not state as a general requirement about guards that die before their own
-logic.
+**Two classes crossed the threshold in the same session and neither is promoted
+here.** The rule says a human decides where a candidate goes, so both are stated
+and left open:
 
-*Archive: none yet — 18 individual rows + 4 collapsed promotion lines = 30 catches
-accounted for, cap is 50 live rows.*
+- **`vacuous-test` (3).** All three are assertions that stayed green with the
+  thing they protect removed, and — the part worth noticing — **none of the three
+  was found by a gate.** Each needed a deliberate mutation step. The candidate
+  principle is roughly *"an assertion is not trusted until it has been observed to
+  fail"*, which `verification.md` catch 3 states for tests but not as a standing
+  requirement on newly written assertions.
+- **`silent-truncation` (3).** All three are enumerations that quietly covered
+  less than they appeared to — a hardcoded file list, a directory list missing
+  `hooks/`, and a directory list scoped to the authoring repo's layout. The
+  candidate principle is about enumerations that are *derived* rather than
+  *listed*, or that fail loudly when they cover nothing.
+
+**who-caught across the 27 individual rows: 17 agent-self, 7 automatic-gate,
+3 human.** Read this carefully — it is NOT the #18 measurement. These are the
+workflow repo's own build, where the agent writing the code is also the one
+reading the output, so `agent-self` is structurally favoured. #18's held-out probe
+is the measurement; this is context for it.
+
+*Archive: none yet — 27 individual rows + 4 collapsed promotion lines = 31 rows,
+cap is 50 live rows.*
