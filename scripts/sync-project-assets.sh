@@ -32,6 +32,13 @@
 
 set -euo pipefail
 
+# The manifest format version, in ONE place. The header said v3 while the success
+# line reported "canonical v2 header" — leftover text from the v2->v3 migration.
+# That line is the only thing an operator reads to confirm what was just written,
+# so it stated the wrong format about a file whose whole purpose is provenance.
+# Two literals that must agree will eventually disagree; there is now one.
+MANIFEST_FORMAT="v3"
+
 # ─── Args ─────────────────────────────────────────────────────────────────────
 PROJECT_PATH=""
 REPO_PATH=""
@@ -268,7 +275,7 @@ if [ "$APPLY" -eq 1 ] && { [ "${#TO_UPDATE[@]}" -gt 0 ] || [ "${#TO_READD[@]}" -
     echo "# Workflow-sourced files copied at bootstrap, with content hashes."
     echo "# Listed = workflow-sourced/re-syncable. Not listed = project override."
     echo "# Stale if workflow repo's current sha256 for a path != the hash here."
-    echo "# Format: v3, 3 tab-separated columns (col 1 = PROJECT-ROOT-relative,"
+    echo "# Format: $MANIFEST_FORMAT, 3 tab-separated columns (col 1 = PROJECT-ROOT-relative,"
     echo "#          col 3 = repo-root-relative source path)."
     if [ -n "$gen_line" ]; then echo "$gen_line"; fi
     echo "# Source: agentic-engineering-workflow @ $repo_commit"
@@ -280,7 +287,7 @@ if [ "$APPLY" -eq 1 ] && { [ "${#TO_UPDATE[@]}" -gt 0 ] || [ "${#TO_READD[@]}" -
     done
   } > "$tmp"
   mv "$tmp" "$MANIFEST"
-  echo "  manifest refreshed (canonical v2 header; source @ $repo_commit; hashes updated)."
+  echo "  manifest refreshed (canonical $MANIFEST_FORMAT header; source @ $repo_commit; hashes updated)."
 fi
 
 if [ "$n_unverified" -gt 0 ]; then

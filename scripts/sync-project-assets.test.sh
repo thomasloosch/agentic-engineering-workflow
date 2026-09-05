@@ -211,6 +211,50 @@ fi
 
 rm -rf "$TESTDIR"
 
+# 5. The format version the run REPORTS must be the one it WROTE. The rewrite
+#    emitted a v3 header while the success line said "canonical v2 header" —
+#    leftover from the v2->v3 migration. Nothing failed, which is the problem: the
+#    success line is the only thing an operator reads to confirm what landed, and
+#    it stated the wrong format about the file whose entire job is provenance.
+#    Asserting the two against each other is what stops them drifting again.
+TESTDIR=$(mktemp -d)
+PROJECT=$(make_project "$TESTDIR")
+REPO=$(make_repo "$TESTDIR")
+if [ -z "$PROJECT" ] || [ -z "$REPO" ]; then
+  fail "reported manifest format matches the header written"        "could not build the fixture under $TESTDIR"
+else
+  # The rewrite only happens when something actually changes, so give the run one
+  # real ADD to perform.
+  mkdir -p "$REPO/.claude/commands"
+  printf -- '# Research command
+' > "$REPO/.claude/commands/research.md"
+
+  skill_hash=$(sha256sum "$PROJECT/.claude/skills/example/SKILL.md" | cut -d' ' -f1)
+  write_header_only_manifest "$PROJECT/.claude/.asset-manifest"
+  printf 'skills/example/SKILL.md	%s	.claude/skills/example/SKILL.md
+' "$skill_hash"     >> "$PROJECT/.claude/.asset-manifest"
+
+  out=$(bash "$SYNC" "$PROJECT" --repo "$REPO" --apply 2>&1)
+  # Extracted with grep/awk rather than a sed capture group: an earlier version
+  # used backreferences that a tooling layer mangled into a literal control
+  # character, so both sides of the comparison were the SAME control character and
+  # the assertion could never fail. The mutation check below is what exposed it.
+  reported=$(printf '%s' "$out" | grep -o 'canonical v[0-9][0-9]* header' | head -1 | awk '{print $2}')
+  written=$(grep -m1 '^# Format:' "$PROJECT/.claude/.asset-manifest" | awk '{print $3}' | tr -d ',')
+  if [ -z "$reported" ]; then
+    fail "reported manifest format matches the header written"          "the run never reported a format version. Output:
+$out"
+  elif [ -z "$written" ]; then
+    fail "reported manifest format matches the header written"          "the rewritten manifest has no '# Format: vN,' line"
+  elif [ "$reported" != "$written" ]; then
+    fail "reported manifest format matches the header written"          "reported $reported but wrote $written — provenance output disagrees with the file"
+  else
+    pass "reported manifest format matches the header written"
+  fi
+fi
+
+rm -rf "$TESTDIR"
+
 echo ""
 if [ "$FAILED" -eq 0 ]; then echo "ALL GREEN"; else echo "SOME RED"; fi
 exit "$FAILED"
