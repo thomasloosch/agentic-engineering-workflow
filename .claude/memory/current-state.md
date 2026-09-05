@@ -41,6 +41,20 @@ Baseline to beat: **six catches, six human, zero agent-self** (#7 session).
 - Flow: PRD -> spec -> Gate 1 -> build (`/tdd`) -> Gate 2. Every defect logged with
   who-caught. **Thomas does not pre-empt** — a defect fixed before the harness has
   its chance makes the number "Thomas + harness".
+- **Slice 1 DONE** (`98ab3f1`): `parse` returns components; all 12 `valid-versions`
+  cases green, mutation-checked (constant stub reddens 15/17; dropping numeric
+  coercion reddens exactly the two numeric-prerelease cases).
+- **BLOCKED BEFORE SLICE 2 — scope decision needed.** The SPEC says only
+  `includePrerelease` is exercised in scope, in 24 cases. The corpus says `loose`
+  is exercised **33 times** in scope (28 as a bare positional boolean, 5 as an
+  options object) and `includePrerelease` appears **18** times, not 24. Slice 2
+  (`invalid-versions`) is where it first bites: 2 of its 6 cases carry `loose`.
+  Three ways out — support `loose`, exclude those cases (which changes the 164 and
+  so changes AC1 and the held-out filter), or treat them as strict and see which
+  still hold. Logged as `premise-drift` in the probe's catch-log.
+- **AC2 is currently unsatisfiable in the probe.** It declares `npm run lint` and
+  ships `eslint.config.js`, but nothing declares eslint and there is no
+  `node_modules`, so lint has never run there. Bootstrap gap, not a probe gap.
 
 ### In progress (gate-1 approved)
 
@@ -74,15 +88,28 @@ Baseline to beat: **six catches, six human, zero agent-self** (#7 session).
   But a warn-only hook (exit 0 + stderr) is **mute**: its output never surfaces. If it
   matters, make it block.
 - `node` is not on `PATH` in a non-interactive `wsl.exe bash -c`; use `bash -lc`.
+  WSL has no native node here at all — `npm` resolves through Windows interop, so a
+  path printed from "inside WSL" can come back as a `\\wsl.localhost\...` UNC path.
+- **The GitHub SSH key is Windows-side only.** `git push` from WSL fails
+  `Permission denied (publickey)`; push from Git Bash. Same repo, same remote.
+- **Python's default text-mode write emits CRLF on Windows.** Edits made that way
+  ship CRLF into a repo whose scripts run under WSL bash, which then dies on a bare
+  CR before reaching its own logic. The index stays LF, so `git status` shows
+  nothing. Pass an explicit LF newline when writing files.
 - Plugin is at **0.4.0**. A shipped change without a version bump is a silent no-op;
   CI fails on it.
 
 ### Instruments
 
-- **Catch-log** (`.claude/memory/catch-log.md`) — 30 catches, 4 promotions fired
+- **Catch-log** (`.claude/memory/catch-log.md`) — 31 rows (27 individual + 4
+  collapsed promotion summaries), 4 promotions fired
   (`artifact-vs-effect` -> catch 1, `wrong-invocation-path` -> 5a, `fail-open-guard`
   -> 2a, `overbroad-assertion` -> 3a). Its rules are the SOURCE for the propagated
   skeleton; edit there, then regenerate.
+  **Two classes crossed the rule-of-three on 2026-09-05 and neither is promoted:
+  `vacuous-test` (3) and `silent-truncation` (3).** Both await a human decision on
+  where the principle goes. Standings are now recomputed from the table rather than
+  by extending the previous hand-kept tally.
 - **verification.md** — the promoted principles. Reached by URL from Rule 2.
 
 ---
