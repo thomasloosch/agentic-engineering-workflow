@@ -69,6 +69,16 @@ warns. CI fails on this (`scripts/check-plugin-version.sh`), so bump `version` i
 `.claude-plugin/plugin.json` whenever you touch `.claude/skills/` or
 `docs/checklists/`.
 
+### Syncing mechanical assets
+
+The mechanical wiring half (CI workflows, git hooks, lint config) propagates via `sync-project-assets.sh`, which performs three-hash diffing to detect local overrides and repo changes. It runs as a DRY RUN by default:
+
+```bash
+scripts/sync-project-assets.sh <project-path>
+```
+
+To apply detected UPDATEs and re-add MISSING files, add `--apply`. There is no automation or CI step for this — run it manually after this repo changes assets your project depends on. The portable half (skills, checklists) is plugin-distributed and updates on the next session.
+
 ## Testing and linting this repo
 
 This repo distributes the TDD gate and the guards, so it holds itself to the
