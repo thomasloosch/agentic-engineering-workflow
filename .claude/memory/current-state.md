@@ -15,7 +15,7 @@ after that plan was retired. Structure carries this rule, not an instruction.
 **If you change what is true, edit the block below. If you record what happened,
 append to the Log.**
 
-Last updated: 2026-09-05
+Last updated: 2026-09-07
 
 ---
 
@@ -30,10 +30,9 @@ project repos. Separate from product work; used to build it.
 Nothing is half-finished and nothing is blocked on a fix. Both repos are clean, the
 workflow repo is pushed, CI is green. What is outstanding is judgment:
 
-1. **#18 — accept or reject Gate 2.** The run is complete (below). Closing it
-   unblocks #24 and #25.
-2. **#20 and #21 — gate 1.** Both specs are drafted and committed, neither is
+1. **#20 and #21 — gate 1.** Both specs are drafted and committed, neither is
    built. They disagree usefully: #20 recommends building, #21 recommends not.
+2. **#24 and #25 — gate 1.** Specs drafted 2026-09-07 now that #18's tally exists.
 3. **#23's trigger.** It waits for `premise-drift` or `unobservable-AC` at gate 1
    **twice**. The probe run logged one — the `loose` scope error found in an
    already-approved spec. Whether that is instance one or instance two is a human
@@ -42,7 +41,7 @@ workflow repo is pushed, CI is green. What is outstanding is judgment:
    validation record exist on this machine only, and they are the evidence for the
    whole measurement.
 
-### #18 — COMPLETE, awaiting Gate 2
+### #18 — CLOSED 2026-09-07, Gate 2 accepted
 
 The measurement the program exists to produce. Baseline to beat: **six catches, six
 human, zero agent-self** (#7 session).
@@ -53,7 +52,11 @@ human, zero agent-self** (#7 session).
   `~/projects/semver-probe/docs/VALIDATION-RESULT.md` **before** any fix, and
   `corpus/held-out.json` appears in no earlier commit (AC6, checkable by
   `git log --diff-filter=A`).
-- **Catches: 9 — 5 `agent-self`, 4 `automatic-gate`, 0 `human`.**
+- **Catches: 9 — 5 `agent-self`, 4 `automatic-gate`, 0 `human`.** Full report:
+  `docs/gate-2-issue-18.md`. **The ratio is not the conclusion** — see the closing
+  comment on #18. What the run demonstrated is narrower: mutation testing and
+  held-out validation each found defects nothing else did, and the bespoke guards
+  found nothing at all inside the probe.
 - **Read the number with its caveats.** Zero human catches reflects zero
   opportunity, not harness superiority — nobody was reviewing. Three of the five
   `agent-self` catches came from ONE instrument, the mutation step, and each was a
@@ -77,9 +80,11 @@ human, zero agent-self** (#7 session).
 ### Parked, with triggers
 
 - **#23 PRD/spec front-end** — W1 landed; see decision 3 above for its trigger.
-- **#24 judgment-class instrumentation** and **#25 up-promotion** — both were gated
-  on #18's tally. The tally now exists, so both are unblocked pending the Gate 2
-  decision.
+- **#24 judgment-class instrumentation** and **#25 up-promotion** — no longer
+  parked. The tally they waited for exists, and gate-1 specs were drafted
+  2026-09-07. Note the tally is weaker than either issue assumed: see below.
+- **#34 human-review-arm probe** — new, filed 2026-09-07. The comparison #18 could
+  not make, because nobody was reviewing during that run.
 - **#9 / #11 / #14** (YAGNI, each with its own trigger).
 
 ### Projects on this workflow

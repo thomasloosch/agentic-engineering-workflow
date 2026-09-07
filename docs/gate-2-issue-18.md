@@ -1,4 +1,4 @@
-<!-- Posted to issue #18 on 2026-09-05. Kept here because the issue is the
+<!-- Posted to issue #18 on 2026-09-07. Kept here because the issue is the
      conversation and this repo is the record; a decision that lives only in a
      comment thread is one `gh` outage away from being unciteable. -->
 
