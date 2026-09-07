@@ -1,8 +1,28 @@
 # Spec — #21 Gate-rejection logging
 
-**Issue:** #21 · **Status:** Gate 1 — draft, recommends RESCOPE (do not build the sketched instrument yet) · **Date:** 2026-09-05
-**Depends on:** #19 (catch-log, CLOSED — but see §0), #18 (semver acceptance harness, **still OPEN**)
-**Composes with:** #30 (in flight — landing in this working tree right now, uncommitted)
+**Issue:** #21 · **Status:** **Gate 1 APPROVED 2026-09-07 — RESCOPE** · **Drafted:** 2026-09-05
+**Depends on:** #19 (catch-log, CLOSED — but see §0), #18 (semver acceptance harness, **CLOSED 2026-09-07** — see decision 4)
+**Composes with:** #30 (**CLOSED 2026-09-07**; `docs/specs/TEMPLATE.md` shipped in `53c3bfd`)
+
+## Gate 1 decisions (2026-09-07)
+
+1. **Rescope, agreed.** Do not extend catch-log's `who-caught` set and do not open a second
+   file now. #19's own Gate 1 decision 3 set the precondition (wait for #18 to run) and it is
+   honored as written.
+2. **Interim convention named as standing practice.** Recording rejection/amendment reasoning
+   inline, under a dated "Gate 1 decisions" heading at the top of the spec — exactly this
+   section, in this file — is the convention until the trigger below fires. No new file, no
+   new schema.
+3. **Revisit trigger, unchanged from §2:** build the structured instrument when #18 produces
+   its first real gate rejection, or when three gate-1/gate-2 rejections have been recorded via
+   this interim convention — whichever comes first.
+4. **Flag, not acted on:** #18 closed today (2026-09-07), after this spec was drafted. Its
+   Gate 2 report (`docs/gate-2-issue-18.md`, AC8) records a Gate-1-rejected sub-scope
+   (`range-parse`, excluded on principle). Whether that satisfies "#18 produces its first real
+   gate rejection" is a judgment call this spec does not make — the trigger names no closed
+   vocabulary for what counts as a "real" rejection versus an ordinary Gate 1 scoping decision,
+   unlike catch-log's closed three-value `who-caught` set. Check this before assuming the
+   trigger is still unfired.
 
 ---
 
