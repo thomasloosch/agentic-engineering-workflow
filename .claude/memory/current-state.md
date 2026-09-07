@@ -33,6 +33,10 @@ workflow repo is pushed, CI is green. What is outstanding is judgment:
 1. **#20 and #21 — gate 1.** Both specs are drafted and committed, neither is
    built. They disagree usefully: #20 recommends building, #21 recommends not.
 2. **#24 and #25 — gate 1.** Specs drafted 2026-09-07 now that #18's tally exists.
+   **Both recommend NOT building.** #24: its gate was "where human catches
+   cluster", and #18 produced zero human catches, so re-gate on #34. #25: the
+   down-direction's gaps were already closed by #16/#17, and the up-direction's
+   trigger cannot fire (see #35).
 3. **#23's trigger.** It waits for `premise-drift` or `unobservable-AC` at gate 1
    **twice**. The probe run logged one — the `loose` scope error found in an
    already-approved spec. Whether that is instance one or instance two is a human
@@ -85,6 +89,9 @@ human, zero agent-self** (#7 session).
   2026-09-07. Note the tally is weaker than either issue assumed: see below.
 - **#34 human-review-arm probe** — new, filed 2026-09-07. The comparison #18 could
   not make, because nobody was reviewing during that run.
+- **#35 jobs-radar has no catch-log** — new, filed 2026-09-07. Its `.claude/memory/`
+  still carries the pre-catch-log `lessons.md`/`patterns.md` scheme, so the
+  cross-project half of the learning loop has exactly one project in it.
 - **#9 / #11 / #14** (YAGNI, each with its own trigger).
 
 ### Projects on this workflow
