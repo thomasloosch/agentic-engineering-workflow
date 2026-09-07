@@ -25,59 +25,70 @@ Last updated: 2026-09-05
 skills, standards, guards, hooks, and a bootstrap that stamps the harness into
 project repos. Separate from product work; used to build it.
 
-### NEXT — #18, the semver acceptance harness
+### NEXT — four human decisions, no build in progress
 
-The measurement the whole program exists to produce: of the defects found building a
-real thing through this workflow, what share did the harness catch versus Thomas.
-Baseline to beat: **six catches, six human, zero agent-self** (#7 session).
+Nothing is half-finished and nothing is blocked on a fix. Both repos are clean, the
+workflow repo is pushed, CI is green. What is outstanding is judgment:
 
-- Probe repo: `~/projects/semver-probe`, bootstrapped and wired, catch-log seeded
-  with zero rows.
-- **Pre-build boundary: `f294741`** — 494 visible cases from `npm/node-semver`
-  @ `6e05b7637396ac66522cff8731f07cfe0ef49a29`, split by sha256 last-byte mod 2.
-  `corpus/held-out.json` is absent and must stay absent until validation.
-- Split verified **deterministic**: a second independent run produced byte-identical
-  output.
-- Flow: PRD -> spec -> Gate 1 -> build (`/tdd`) -> Gate 2. Every defect logged with
-  who-caught. **Thomas does not pre-empt** — a defect fixed before the harness has
-  its chance makes the number "Thomas + harness".
-- **Slice 1 DONE** (`98ab3f1`): `parse` returns components; all 12 `valid-versions`
-  cases green, mutation-checked (constant stub reddens 15/17; dropping numeric
-  coercion reddens exactly the two numeric-prerelease cases).
-- **BLOCKED BEFORE SLICE 2 — scope decision needed.** The SPEC says only
-  `includePrerelease` is exercised in scope, in 24 cases. The corpus says `loose`
-  is exercised **33 times** in scope (28 as a bare positional boolean, 5 as an
-  options object) and `includePrerelease` appears **18** times, not 24. Slice 2
-  (`invalid-versions`) is where it first bites: 2 of its 6 cases carry `loose`.
-  Three ways out — support `loose`, exclude those cases (which changes the 164 and
-  so changes AC1 and the held-out filter), or treat them as strict and see which
-  still hold. Logged as `premise-drift` in the probe's catch-log.
-- **AC2 / eslint — bootstrap side FIXED 2026-09-05.** The emitted
-  `setup-project.sh` now DECLARES eslint and cross-env in `devDependencies` instead
-  of printing an install hint at the end, and refuses to run at all when node is
-  absent (every write it makes is a `node -e`, so without that it printed its check
-  marks and exited 0 having written nothing). The probe still needs its own
-  `npm install`.
+1. **#18 — accept or reject Gate 2.** The run is complete (below). Closing it
+   unblocks #24 and #25.
+2. **#20 and #21 — gate 1.** Both specs are drafted and committed, neither is
+   built. They disagree usefully: #20 recommends building, #21 recommends not.
+3. **#23's trigger.** It waits for `premise-drift` or `unobservable-AC` at gate 1
+   **twice**. The probe run logged one — the `loose` scope error found in an
+   already-approved spec. Whether that is instance one or instance two is a human
+   call, not a count.
+4. **`semver-probe` has no git remote.** The corpus, the catch-log and the
+   validation record exist on this machine only, and they are the evidence for the
+   whole measurement.
 
-### In progress (gate-1 approved)
+### #18 — COMPLETE, awaiting Gate 2
 
-- **#22 memory reconcile** — this restructure is its first half. Checker second.
-- **#30 validation-strategy section** — spec template + a Standard 2 clause. No CI
-  guard, deliberately: a guard can only assert a heading exists.
+The measurement the program exists to produce. Baseline to beat: **six catches, six
+human, zero agent-self** (#7 session).
+
+- **Build:** all 164 in-scope visible cases pass. 206 tests, 7 suites, lint green.
+- **Held-out validation: 155/160 (96.9%)** on cases the build never saw. Thomas
+  generated the split; same upstream commit as the visible half. Recorded in
+  `~/projects/semver-probe/docs/VALIDATION-RESULT.md` **before** any fix, and
+  `corpus/held-out.json` appears in no earlier commit (AC6, checkable by
+  `git log --diff-filter=A`).
+- **Catches: 9 — 5 `agent-self`, 4 `automatic-gate`, 0 `human`.**
+- **Read the number with its caveats.** Zero human catches reflects zero
+  opportunity, not harness superiority — nobody was reviewing. Three of the five
+  `agent-self` catches came from ONE instrument, the mutation step, and each was a
+  branch the corpus provably cannot reach. The workflow's bespoke guards caught
+  little inside the probe: the `automatic-gate` catches were eslint twice and the
+  held-out validation twice. And 96.9% cannot separate generalisation from recall,
+  since node-semver is almost certainly in training data.
+- **The held-out half is spent.** Both defects it found are now permanent
+  regression tests, because that half cannot serve as an independent check again.
+  Any later score against it is fitting, not generalisation.
+
+### Recently completed
+
+- **#22 memory reconcile** — both halves. The checker is
+  `scripts/check-memory-drift.sh`. **It is structural, not semantic**: it verifies
+  issue states, ADR existence, commit SHAs and the freshness marker, and does not
+  read the block for truth. A clean run is narrower than it looks.
+- **#30 validation-strategy section** — `docs/specs/TEMPLATE.md` plus a clause under
+  Standard 2. No CI guard, deliberately: a guard can only assert a heading exists.
 
 ### Parked, with triggers
 
-- **#23 PRD/spec front-end** — W1 landed; the rest waits until the catch-log records
-  `premise-drift` or `unobservable-AC` at gate 1 **twice**. W2 has zero instances.
-- **#25 up-promotion**, **#24 judgment-class instrumentation** (gated on #18's tally),
-  **#9 / #11 / #14** (YAGNI, each with its own trigger).
+- **#23 PRD/spec front-end** — W1 landed; see decision 3 above for its trigger.
+- **#24 judgment-class instrumentation** and **#25 up-promotion** — both were gated
+  on #18's tally. The tally now exists, so both are unblocked pending the Gate 2
+  decision.
+- **#9 / #11 / #14** (YAGNI, each with its own trigger).
 
 ### Projects on this workflow
 
 - **jobs-radar** — harness installed; its new files are deliberately **left
   untracked**, and it keeps its own `test`/`tdd`/`lint` scripts. `setup-project.sh`
   correctly refused to overwrite them.
-- **semver-probe** — new, for #18.
+- **semver-probe** (`~/projects/semver-probe`) — #18's probe, complete. **No git
+  remote.**
 
 ### Runtime facts that bite (verify against these before debugging)
 
@@ -102,22 +113,28 @@ Baseline to beat: **six catches, six human, zero agent-self** (#7 session).
   ship CRLF into a repo whose scripts run under WSL bash, which then dies on a bare
   CR before reaching its own logic. The index stays LF, so `git status` shows
   nothing. Pass an explicit LF newline when writing files.
-- Plugin is at **0.4.0**. A shipped change without a version bump is a silent no-op;
-  CI fails on it.
+- Plugin is at **0.5.0**. A shipped change without a version bump is a silent no-op;
+  CI fails on it. `SHIPPED_PATHS` is `.claude-plugin`, `.claude/skills`,
+  `docs/checklists` — `docs/standards` and `docs/specs` are outside it and do NOT
+  trip the guard, though the standards doc still reaches projects by bootstrap copy.
 
 ### Instruments
 
-- **Catch-log** (`.claude/memory/catch-log.md`) — 31 rows (27 individual + 4
-  collapsed promotion summaries), 4 promotions fired
-  (`artifact-vs-effect` -> catch 1, `wrong-invocation-path` -> 5a, `fail-open-guard`
-  -> 2a, `overbroad-assertion` -> 3a). Its rules are the SOURCE for the propagated
-  skeleton; edit there, then regenerate.
-  **6 promotions now**: `vacuous-test` -> catch **3b** (an assertion is not trusted
-  until it has been observed to fail) and `silent-truncation` -> catch **8** (an
-  enumeration must be derived, or fail loudly when it covers nothing), both promoted
-  2026-09-05. Standings are recomputed from the table rather than by extending the
-  previous hand-kept tally.
-- **verification.md** — the promoted principles. Reached by URL from Rule 2.
+- **Catch-log** (`.claude/memory/catch-log.md`) — 37 rows: 31 individual plus 6
+  collapsed promotion summaries. Across the 31: **17 `agent-self`, 11
+  `automatic-gate`, 3 `human`.** Structurally favours `agent-self`, because the
+  agent writing the code is also the one reading the output.
+- **Six promotions fired**: `artifact-vs-effect` -> catch 1, `wrong-invocation-path`
+  -> 5a, `fail-open-guard` -> 2a, `overbroad-assertion` -> 3a, `vacuous-test` -> 3b,
+  `silent-truncation` -> 8. The catch-log's RULES are the source for the propagated
+  skeleton; edit there, then regenerate with
+  `node scripts/make-catch-log-skeleton.mjs`.
+- **Probe catch-log** (`~/projects/semver-probe/.claude/memory/catch-log.md`) — 9
+  rows, 5 `agent-self` / 4 `automatic-gate`. This is #18's measurement and is kept
+  separate from this repo's log on purpose.
+- **verification.md** — 8 top-level checks plus 2a, 3a, 3b, 5a. Reached by URL from
+  Rule 2.
+- **Drift checker** — `scripts/check-memory-drift.sh`, structural only (see above).
 
 ---
 
