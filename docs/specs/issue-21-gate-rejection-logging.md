@@ -74,7 +74,11 @@ seen as a pattern because no row exists per rejection.
 unmet precondition). **Do not open a second file now** (same reason — fold-vs-separate is
 exactly the question being avoided blind).
 
-**Do name, explicitly, the interim practice already in use.** #19, #22, and #30's own specs
+**Do name, explicitly, the interim practice already in use.** *(Citation corrected
+2026-09-07: this originally named #19, #22 and #30. #22 and #30 do NOT use the
+heading — both were still awaiting approval when this was drafted. The practice is
+in fact better established than the original claim, appearing in #17, #18, #19 and
+#26.)* #17, #18, #19 and #26's own specs
 each record amendment/rejection reasoning inline under a dated "Gate 1 decisions" heading.
 That costs nothing new — it is already house style. This spec's contribution is to name it
 as the standing convention until the trigger below fires, and to strike the broken
