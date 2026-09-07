@@ -30,13 +30,7 @@ project repos. Separate from product work; used to build it.
 Nothing is half-finished and nothing is blocked on a fix. Both repos are clean, the
 workflow repo is pushed, CI is green. What is outstanding is judgment:
 
-1. **#35's catch-log is the one open action** — see below.
-2. **#35's catch-log is installed but git-IGNORED** (`.gitignore:31` covers
-   `.claude/memory/`), so rows logged there die on a fresh clone and cannot feed
-   cross-project promotion. The fix needs the contents ignored rather than the
-   directory: `.claude/memory/*` plus `!.claude/memory/catch-log.md`. Not applied —
-   jobs-radar is a deployed product repo with a recorded untracked-harness policy.
-3. **#21's revisit trigger is undecidable as written** — "#18's first real gate
+1. **#21's revisit trigger is undecidable as written** — "#18's first real gate
    rejection" names no closed vocabulary, unlike #23's, which counts catch-log
    error-classes and therefore can be evaluated from the file.
 
@@ -95,7 +89,7 @@ human, zero agent-self** (#7 session).
   2026-09-07. Note the tally is weaker than either issue assumed: see below.
 - **#34 human-review-arm probe** — new, filed 2026-09-07. The comparison #18 could
   not make, because nobody was reviewing during that run.
-- **#35 jobs-radar has no catch-log** — new, filed 2026-09-07. Its `.claude/memory/`
+- **#35 jobs-radar catch-log** — CLOSED 2026-09-07. Its `.claude/memory/`
   still carries the pre-catch-log `lessons.md`/`patterns.md` scheme, so the
   cross-project half of the learning loop has exactly one project in it.
 - **#9 / #11 / #14** (YAGNI, each with its own trigger).
@@ -104,7 +98,10 @@ human, zero agent-self** (#7 session).
 
 - **jobs-radar** — harness installed; its new files are deliberately **left
   untracked**, and it keeps its own `test`/`tdd`/`lint` scripts. `setup-project.sh`
-  correctly refused to overwrite them.
+  correctly refused to overwrite them. **One exception, 2026-09-07 (#35):
+  `.claude/memory/catch-log.md` IS tracked** — everything else in that group is
+  regenerable from this repo and the catch-log is not. Its log starts empty; the
+  old `lessons.md`/`patterns.md` were not back-filled.
 - **semver-probe** (`~/projects/semver-probe`) — #18's probe, complete and now
   pushed to a **private** repo (`thomasloosch/semver-probe`). Private on purpose:
   `corpus/held-out.json` is committed there, and publishing it would spoil
