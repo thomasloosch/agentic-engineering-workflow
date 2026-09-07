@@ -30,11 +30,7 @@ project repos. Separate from product work; used to build it.
 Nothing is half-finished and nothing is blocked on a fix. Both repos are clean, the
 workflow repo is pushed, CI is green. What is outstanding is judgment:
 
-1. **`semver-probe` still has no git remote — the one open action.** The `gh` token
-   is a fine-grained PAT with no `createRepository` permission, so this cannot be
-   done from a session. Create an empty private `semver-probe` repo, then the push
-   is one command. Until then the corpus, catch-log and validation record for the
-   whole #18 measurement exist on one machine.
+1. **#35's catch-log is the one open action** — see below.
 2. **#35's catch-log is installed but git-IGNORED** (`.gitignore:31` covers
    `.claude/memory/`), so rows logged there die on a fresh clone and cannot feed
    cross-project promotion. The fix needs the contents ignored rather than the
@@ -109,8 +105,14 @@ human, zero agent-self** (#7 session).
 - **jobs-radar** — harness installed; its new files are deliberately **left
   untracked**, and it keeps its own `test`/`tdd`/`lint` scripts. `setup-project.sh`
   correctly refused to overwrite them.
-- **semver-probe** (`~/projects/semver-probe`) — #18's probe, complete. **No git
-  remote.**
+- **semver-probe** (`~/projects/semver-probe`) — #18's probe, complete and now
+  pushed to a **private** repo (`thomasloosch/semver-probe`). Private on purpose:
+  `corpus/held-out.json` is committed there, and publishing it would spoil
+  node-semver as a held-out oracle for any future run. Its history was rewritten
+  once, before the first push, to replace a private commit email with the noreply
+  address — content identical (HEAD tree hash unchanged), all SHAs moved.
+  **`gh` cannot see this repo**: the fine-grained PAT is scoped to selected
+  repositories and this one is not among them. Git over SSH is unaffected.
 
 ### Runtime facts that bite (verify against these before debugging)
 
