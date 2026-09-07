@@ -30,20 +30,19 @@ project repos. Separate from product work; used to build it.
 Nothing is half-finished and nothing is blocked on a fix. Both repos are clean, the
 workflow repo is pushed, CI is green. What is outstanding is judgment:
 
-1. **#20 and #21 — gate 1.** Both specs are drafted and committed, neither is
-   built. They disagree usefully: #20 recommends building, #21 recommends not.
-2. **#24 and #25 — gate 1.** Specs drafted 2026-09-07 now that #18's tally exists.
-   **Both recommend NOT building.** #24: its gate was "where human catches
-   cluster", and #18 produced zero human catches, so re-gate on #34. #25: the
-   down-direction's gaps were already closed by #16/#17, and the up-direction's
-   trigger cannot fire (see #35).
-3. **#23's trigger.** It waits for `premise-drift` or `unobservable-AC` at gate 1
-   **twice**. The probe run logged one — the `loose` scope error found in an
-   already-approved spec. Whether that is instance one or instance two is a human
-   call, not a count.
-4. **`semver-probe` has no git remote.** The corpus, the catch-log and the
-   validation record exist on this machine only, and they are the evidence for the
-   whole measurement.
+1. **`semver-probe` still has no git remote — the one open action.** The `gh` token
+   is a fine-grained PAT with no `createRepository` permission, so this cannot be
+   done from a session. Create an empty private `semver-probe` repo, then the push
+   is one command. Until then the corpus, catch-log and validation record for the
+   whole #18 measurement exist on one machine.
+2. **#35's catch-log is installed but git-IGNORED** (`.gitignore:31` covers
+   `.claude/memory/`), so rows logged there die on a fresh clone and cannot feed
+   cross-project promotion. The fix needs the contents ignored rather than the
+   directory: `.claude/memory/*` plus `!.claude/memory/catch-log.md`. Not applied —
+   jobs-radar is a deployed product repo with a recorded untracked-harness policy.
+3. **#21's revisit trigger is undecidable as written** — "#18's first real gate
+   rejection" names no closed vocabulary, unlike #23's, which counts catch-log
+   error-classes and therefore can be evaluated from the file.
 
 ### #18 — CLOSED 2026-09-07, Gate 2 accepted
 
@@ -71,6 +70,17 @@ human, zero agent-self** (#7 session).
 - **The held-out half is spent.** Both defects it found are now permanent
   regression tests, because that half cannot serve as an independent check again.
   Any later score against it is fitting, not generalisation.
+
+### Gate 1 outcomes, 2026-09-07
+
+- **#20 BUILT** — `verification.md` entry **9**: a defect is not fixed until its
+  failing case is a permanent test/eval entry. Plugin bumped to 0.6.0.
+- **#21 RESCOPED** — no schema; the inline dated "Gate 1 decisions" heading (as in
+  #17/#18/#19/#26) is named as the standing interim convention.
+- **#24 HELD** — re-gated on #34, and its issue text now carries a correction
+  notice so a closed #18 does not read as a green light.
+- **#25 PARKED** — one README section naming the sync's scope and manual cadence.
+- **#23 STAYS PARKED** — one trigger instance recorded, two required.
 
 ### Recently completed
 
@@ -125,7 +135,7 @@ human, zero agent-self** (#7 session).
   ship CRLF into a repo whose scripts run under WSL bash, which then dies on a bare
   CR before reaching its own logic. The index stays LF, so `git status` shows
   nothing. Pass an explicit LF newline when writing files.
-- Plugin is at **0.5.0**. A shipped change without a version bump is a silent no-op;
+- Plugin is at **0.6.0**. A shipped change without a version bump is a silent no-op;
   CI fails on it. `SHIPPED_PATHS` is `.claude-plugin`, `.claude/skills`,
   `docs/checklists` — `docs/standards` and `docs/specs` are outside it and do NOT
   trip the guard, though the standards doc still reaches projects by bootstrap copy.
