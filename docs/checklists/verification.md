@@ -202,6 +202,41 @@ symptom.
    is the only reason it surfaced at all, and even then only in the project where
    the list happened to be wrong.
 
+9. **A defect is not fixed until its failing case is a permanent test/eval
+   entry** — Rule 2's evidence bar ("ran it, output was X") does not require that
+   evidence to survive the session; closing a defect on it alone leaves nothing
+   behind to catch a recurrence. At least three code/config defects were fixed
+   exactly this way, by the catch-log's own description:
+
+   - the manifest hash-substitution defect (2026-08-17): *"Caught by reasoning
+     through the hash model before committing, not by a test."*
+   - the piped exit-status miscount (2026-08-14): ground truth was checked by
+     hand, not by a persisted assertion — *"the stated evidence measured the
+     wrong process."*
+   - the ADR-0007 `node_modules` claim (2026-08-18): explicitly *"recorded as
+     untested rather than resolved by argument."*
+
+   **New top-level parent, not a child of catch 3/3b, and not promoted through
+   the catch-log's rule-of-three.** 3 and 3b ask whether an assertion that
+   already exists is good, and whether it has been observed to fail; this asks
+   the prior question — does one exist at all once the defect is declared fixed.
+   And it cannot arrive through the usual promotion path: "no permanent case
+   left behind" is a property of the **outcome** column, cutting across
+   `artifact-vs-effect`, `premise-drift`, and every other error-class alike,
+   while the rule-of-three counts recurrence *by error-class* — so that
+   mechanism structurally cannot surface this pattern. Added directly on the
+   accumulated evidence instead.
+
+   *Mechanical checks:* before closing a defect, confirm a test or eval case
+   exists that reproduces the failing behaviour, fails against the pre-fix
+   code, and is committed rather than run-and-discarded. Does **not** require a
+   regression case for every catch-log row — a documentation-only fix with
+   nothing executable to assert against (the ADR-0002 runtime-premise row) is a
+   legitimate exception, not a gap — and does not require backfilling cases for
+   defects fixed before this entry existed. The bar is narrower than "test
+   everything": a case a test or eval genuinely could have caught, left with
+   nothing behind it.
+
 ## Maturity signal
 
 The list stops growing when review stops surprising us: when a few builds pass and
